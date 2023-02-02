@@ -15,8 +15,8 @@ main :: proc() {
     // This procedure sets file format from file extension [gltf/glb]
     data, error := gltf2.load_from_file("file_name.[gltf/glb]")
     switch err in error {
-    case gltf2.json_error: // handle json parsing errors
-    case gltf2.gltf_error: // handle gltf2 parsing errors
+    case gltf2.JSON_Error: // handle json parsing errors
+    case gltf2.GLTF_Error: // handle gltf2 parsing errors
     }
     // if there are no errors we want to free memory when we are done with processing gltf/glb file.
     defer gltf2.unload(data)
