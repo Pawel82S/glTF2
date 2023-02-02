@@ -1,0 +1,53 @@
+# Why another glTF library?
+1. I want to learn [Odin](https://odin-lang.org/) because I like philosophy behind it and syntax. I also tried [Zig](https://ziglang.org/) for few weeks, but it's syntax is not compelling to me.
+2. I don't like [cgltf](https://github.com/jkuhlmann/cgltf) implementation in [vendor:cgltf](https://pkg.odin-lang.org/vendor/cgltf/) and it doesn't work on *Nix based systems (for now), only on Windows.
+3. Odin has built-in many great native packages like [core/encoding/json](https://pkg.odin-lang.org/core/encoding/json/) so why not write glTF file format package that uses Odin types and remove C hint fields from cgltf wrapper?
+4. Learning how to implement specification document into working code. In this case it's [glTF2](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
+5. Because it's fun.
+
+# How to use it
+1. Download [glTF2]() package from github and put in your source folder.
+2. Load entire glTF2 file into memory (simplest way).
+```odin
+import "gltf2"
+
+main :: proc() {
+    // This procedure sets file format from file extension [gltf/glb]
+    data, error := gltf2.load_from_file("file_name.[gltf/glb]")
+    switch err in error {
+    case gltf2.json_error: // handle json parsing errors
+    case gltf2.gltf_error: // handle gltf2 parsing errors
+    }
+    // if there are no errors we want to free memory when we are done with processing gltf/glb file.
+    defer gltf2.unload(data)
+
+    // do stuff with 'data'
+    ...
+}
+```
+3. Load parts of file into memory and parse itself. It can be handy if you can't load entire file into memory.
+```odin
+import "gltf2"
+
+main :: proc () {
+    // Set options for gltf2 parser.
+    // is_glb will gltf2 package if file is in binary format. Most likely it will have "*.glb" suffix. By default it's gltf or JSON file format.
+    // delete_content set to true will delete bytes provided in procedure call. This is what 'load_from_file' does.
+    // parse_uris will try to parse all URI links, this will take CPU time to do so it's not default option.
+    options := gltf2.Options{ is_glb = [true/false(default)], delete_content = [true/false(default)], parse_uris = [true/false(default)] }
+
+    // Load some part of file that is valid JSON object
+    data, error := gltf2.parse(bytes, options)
+    switch err in error {
+    case gltf2.JSON_Error: // Handle JSON parsing errors
+    case gltf2.GLTF_Error: // Handle GLTF2 parsing errors
+    }
+    // If there are no errors we want to free memory when we are done with processing gltf/glb file.
+    defer gltf2.unload(data)
+}
+```
+# How You can help.
+1. Implement missing functionality (package is still missing a lot of stuff).
+2. Remove bugs (they are for sure).
+3. Write documentation with examples.
+4. Optimize code.
