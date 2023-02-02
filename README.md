@@ -6,7 +6,7 @@
 5. Because it's fun.
 
 # How to use it
-1. Download [glTF2]() package from github and put in your source folder.
+1. Download [glTF2](https://github.com/Pawel82S/glTF2) package from github and put in your source folder.
 2. Load entire glTF2 file into memory (simplest way).
 ```odin
 import "gltf2"
