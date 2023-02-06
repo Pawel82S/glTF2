@@ -3,7 +3,7 @@ package gltf2
 import "core:encoding/base64"
 import "core:encoding/json"
 import "core:fmt"
-//import "core:mem"
+import "core:mem"
 import "core:os"
 import "core:path/filepath"
 import "core:strconv"
@@ -37,6 +37,11 @@ unload :: proc(data: ^Data) {
     if data == nil do return
 
     ext_free(data.asset)
+    accessors_free(data.accessors)
+    buffers_free(data.buffers)
+    buffer_views_free(data.buffer_views)
+    nodes_free(data.nodes)
+    scenes_free(data.scenes)
     ext_free(data)
     free(data)
 }
@@ -88,7 +93,7 @@ parse :: proc(file_content: []byte, opt := Options{}) -> (data: ^Data, err: Erro
     //data.images = images_parse(parsed_object.(json.Object)) or_return
     //data.materials = materials_parse(parsed_object.(json.Object)) or_return
     //data.meshes = meshes_parse(parsed_object.(json.Object)) or_return
-    //data.nodes = nodes_parse(parsed_object.(json.Object)) or_return
+    data.nodes = nodes_parse(parsed_object.(json.Object)) or_return
     //data.samplers = samplers_parse(parsed_object.(json.Object)) or_return
     if scene, ok := parsed_object.(json.Object)[SCENE_KEY]; ok {
         data.scene = Integer(scene.(f64))
@@ -108,7 +113,6 @@ parse :: proc(file_content: []byte, opt := Options{}) -> (data: ^Data, err: Erro
     return data, nil
 }
 
-@(private)
 free_json_value :: proc(value: json.Value, extensions_and_extras := false) {
     #partial switch val in value {
     case json.Array:
@@ -187,7 +191,6 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
 }
 
 // Free extensions and extras
-@(private)
 ext_free :: proc(str: $T) {
     if str.extensions != nil do free_json_value(str.extensions, true)
     if str.extras != nil do free_json_value(str.extras, true)
@@ -298,7 +301,6 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
     return res, nil
 }
 
-@(private)
 accessors_free :: proc(accessors: []Accessor) {
     if len(accessors) == 0 do return
     for accessor in accessors do ext_free(accessor)
@@ -354,7 +356,6 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, e
     return res, nil
 }
 
-@(private)
 buffers_free :: proc(buffers: []Buffer) {
     if len(buffers) == 0 do return
     for buffer in buffers {
@@ -456,6 +457,88 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
     return res, nil
 }
 
+buffer_views_free :: proc(views: []Buffer_View) {
+    if len(views) == 0 do return
+    for view in views do ext_free(view)
+    delete(views)
+}
+
+@(private, require_results)
+nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
+    if NODES_KEY not_in object do return
+
+    nodes_array := object[NODES_KEY].(json.Array)
+    array_len := len(nodes_array)
+    res = make([]Node, array_len)
+    defer if err != nil do delete(res)
+
+    for node, idx in nodes_array {
+        res[idx].mat = (matrix[4, 4]Number)(1)
+        res[idx].rotation = quaternion128(1)
+        res[idx].scale = { 1, 1, 1 }
+
+        for k, v in node.(json.Object) {
+            switch {
+            case k == "camera":
+                res[idx].camera = Integer(v.(f64))
+
+            case k == "children":
+                children_array := v.(json.Array)
+                res[idx].children = make([]Integer, len(children_array))
+                for child, i in children_array do res[idx].children[i] = Integer(child.(f64))
+
+            case k == "matrix": // Default identity matrix
+            // Matrices are stored in column-major order. Odin matrices are indexed like this [row, col]
+                for num, i in v.(json.Array) {
+                    res[idx].mat[i % 4, i / 4] = Number(num.(f64))
+                }
+
+            case k == "mesh":
+                res[idx].mesh = Integer(v.(f64))
+
+            case k == "name":
+                res[idx].name = v.(string)
+
+            case k == "scale": // Default [1, 1, 1]
+                for num, i in v.(json.Array) do res[idx].scale[i] = Number(num.(f64))
+
+            case k == "skin":
+                res[idx].skin = Integer(v.(f64))
+
+            case k == "rotation": // Default [0, 0, 0, 1]
+                rotation: [4]Number
+                for num, i in v.(json.Array) do rotation[i] = Number(num.(f64))
+                mem.copy(&res[idx].rotation, &rotation, size_of(quaternion128))
+
+            case k == "translation": // Defalt [0, 0, 0]
+                for num, i in v.(json.Array) do res[idx].translation[i] = Number(num.(f64))
+
+            case k == "weights":
+                weights_array := v.(json.Array)
+                res[idx].weights = make([]Number, len(weights_array))
+                for weight, i in weights_array do res[idx].weights[i] = Number(weight.(f64))
+
+            case k == EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case k == EXTRAS_KEY:
+                res[idx].extras = v
+            }
+        }
+    }
+    return res, nil
+}
+
+nodes_free :: proc(nodes: []Node) {
+    if len(nodes) == 0 do return
+    for node in nodes {
+        if len(node.children) > 0 do delete(node.children)
+        if len(node.weights) > 0 do delete(node.weights)
+        ext_free(node)
+    }
+    delete(nodes)
+}
+
 @(private, require_results)
 scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
     if SCENES_KEY not_in object do return
@@ -489,7 +572,6 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
     return res, nil
 }
 
-@(private)
 scenes_free :: proc(scenes: []Scene) {
     if len(scenes) == 0 do return
     for scene in scenes {
@@ -511,7 +593,6 @@ extensions_names_parse :: proc(object: json.Object, name: string) -> (res: []str
     return res
 }
 
-@(private)
 extensions_names_free :: proc(names: []string) {
     if len(names) == 0 do return
     delete(names)

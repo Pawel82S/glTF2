@@ -1,7 +1,6 @@
 package gltf2
 
 import "core:encoding/json"
-import "core:math/linalg/glsl"
 
 @private ACCESSORS_KEY :: "accessors"
 @private ANIMATIONS_KEY :: "animations"
