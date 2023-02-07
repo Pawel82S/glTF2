@@ -91,11 +91,11 @@ Error_Type :: enum {
     Data_Too_Short,
     Missing_Required_Parameter,
     No_File,
+    Invalid_Type,
     JSON_Missing_Section,
     Unknown_File_Type,
     Unsupported_Version,
     Wrong_Chunk_Type,
-    Wrong_Parameter_Type,
 }
 
 

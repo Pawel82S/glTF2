@@ -40,6 +40,7 @@ unload :: proc(data: ^Data) {
     accessors_free(data.accessors)
     buffers_free(data.buffers)
     buffer_views_free(data.buffer_views)
+    materials_free(data.materials)
     nodes_free(data.nodes)
     scenes_free(data.scenes)
     ext_free(data)
@@ -91,7 +92,7 @@ parse :: proc(file_content: []byte, opt := Options{}) -> (data: ^Data, err: Erro
     data.buffer_views = buffer_views_parse(parsed_object.(json.Object)) or_return
     //data.cameras = cameras_parse(parsed_object.(json.Object)) or_return
     //data.images = images_parse(parsed_object.(json.Object)) or_return
-    //data.materials = materials_parse(parsed_object.(json.Object)) or_return
+    data.materials = materials_parse(parsed_object.(json.Object)) or_return
     //data.meshes = meshes_parse(parsed_object.(json.Object)) or_return
     data.nodes = nodes_parse(parsed_object.(json.Object)) or_return
     //data.samplers = samplers_parse(parsed_object.(json.Object)) or_return
@@ -163,7 +164,7 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
         case k == "version": // Required
             version, ok := strconv.parse_f32(v.(string))
             if !ok {
-                return res, GLTF_Error{ type = .Wrong_Parameter_Type, proc_name = #procedure, param = "version" }
+                return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = "version" }
             }
             res.version = Number(version)
             version_found = true
@@ -203,13 +204,10 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
     accessor_array := object[ACCESSORS_KEY].(json.Array)
     array_len := len(accessor_array)
     res = make([]Accessor, array_len)
-    defer if err != nil do delete(res)
-
-    Required :: struct { component_type, count, type: bool }
-    required := make([]Required, array_len)
-    defer delete(required)
 
     for access, idx in accessor_array {
+        component_type_set, count_set, type_set: bool
+
         for k, v in access.(json.Object){
             switch {
             case k == "bufferView":
@@ -220,46 +218,47 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
 
             case k == "componentType": // Required
                 res[idx].component_type = Component_Type(v.(f64))
-                required[idx].component_type = true
+                component_type_set = true
 
             case k == "normalized":
                 res[idx].normalized = v.(bool)
 
             case k == "count": // Required
                 res[idx].count = Integer(v.(f64))
-                required[idx].count = true
+                count_set = true
 
             case k == "type": // Required
                 switch {
                 case v.(string) == "SCALAR":
                     res[idx].type = .Scalar
-                    required[idx].type = true
+                    type_set = true
 
                 case v.(string) == "VEC2":
                     res[idx].type = .Vector2
-                    required[idx].type = true
+                    type_set = true
 
                 case v.(string) == "VEC3":
                     res[idx].type = .Vector3
-                    required[idx].type = true
+                    type_set = true
 
                 case v.(string) == "VEC4":
                     res[idx].type = .Vector4
-                    required[idx].type = true
+                    type_set = true
 
                 case v.(string) == "MAT2":
                     res[idx].type = .Matrix2
-                    required[idx].type = true
+                    type_set = true
 
                 case v.(string) == "MAT3":
                     res[idx].type = .Matrix3
-                    required[idx].type = true
+                    type_set = true
 
                 case v.(string) == "MAT4":
                     res[idx].type = .Matrix4
-                    required[idx].type = true
+                    type_set = true
 
-                case: return res, GLTF_Error{ type = .Wrong_Parameter_Type, proc_name = #procedure, param = v.(string) }
+                case:
+                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string) }
                 }
 
             case k == "max":
@@ -289,15 +288,18 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
                 res[idx].extras = v
             }
         }
+
+        if !component_type_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "componentType" }
+        }
+        if !count_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "count" }
+        }
+        if !type_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "type" }
+        }
     }
 
-    has_requirements := true
-    for req in required {
-        has_requirements &&= req.component_type && req.count && req.type
-    }
-    if !has_requirements {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure }
-    }
     return res, nil
 }
 
@@ -319,17 +321,15 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, e
     buffers_array := object[BUFFERS_KEY].(json.Array)
     array_len := len(buffers_array)
     res = make([]Buffer, array_len)
-    defer if err != nil do delete(res)
-
-    required_lengths := make([]bool, array_len)
-    defer delete(required_lengths)
 
     for buffer, idx in buffers_array {
+        byte_length_set: bool
+
         for k, v in buffer.(json.Object) {
             switch {
             case k == "byteLength": // Required
                 res[idx].byte_length = Integer(v.(f64))
-                required_lengths[idx] = true
+                byte_length_set = true
 
             case k == "name":
                 res[idx].name = v.(string)
@@ -344,15 +344,12 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, e
                 res[idx].extras = v
             }
         }
+
+        if !byte_length_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
+        }
     }
 
-    has_requirements := true
-    for req in required_lengths {
-        has_requirements &&= req
-    }
-    if !has_requirements {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
-    }
     return res, nil
 }
 
@@ -409,22 +406,19 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
     views_array := object[BUFFER_VIEWS_KEY].(json.Array)
     array_len := len(views_array)
     res = make([]Buffer_View, array_len)
-    defer if err != nil do delete(res)
-
-    Required :: struct { buffer, byte_length: bool }
-    required := make([]Required, array_len)
-    defer delete(required)
 
     for view, idx in views_array {
+        buffer_set, byte_length_set: bool
+
         for k, v in view.(json.Object) {
             switch {
             case k == "buffer": // Required
                 res[idx].buffer = Integer(v.(f64))
-                required[idx].buffer = true
+                buffer_set = true
 
             case k == "byteLength": // Required
                 res[idx].byte_length = Integer(v.(f64))
-                required[idx].byte_length = true
+                byte_length_set = true
 
             case k == "byteOffset":
                 res[idx].byte_offset = Integer(v.(f64))
@@ -445,15 +439,15 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
                 res[idx].extras = v
             }
         }
+
+        if !buffer_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "buffer" }
+        }
+        if !byte_length_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
+        }
     }
 
-    has_requirements := true
-    for req in required {
-        has_requirements &&= req.buffer && req.byte_length
-    }
-    if !has_requirements {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure }
-    }
     return res, nil
 }
 
@@ -464,13 +458,185 @@ buffer_views_free :: proc(views: []Buffer_View) {
 }
 
 @(private, require_results)
+materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
+    if MATERIALS_KEY not_in object do return
+
+    materials_array := object[MATERIALS_KEY].(json.Array)
+    res = make([]Material, len(materials_array))
+
+    for material, idx in materials_array {
+        res[idx].alpha_cutoff = 0.5
+
+        for k, v in material.(json.Object) {
+            switch {
+            case k == "alphaMode": // Default Opaque
+                switch {
+                case v.(string) == "OPAQUE":
+                    res[idx].alpha_mode = .Opaque
+                case v.(string) == "MASK":
+                    res[idx].alpha_mode = .Mask
+                case v.(string) == "BLEND":
+                    res[idx].alpha_mode = .Blend
+                case:
+                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string) }
+                }
+
+            case k == "alphaCutoff": // Default 0.5
+                res[idx].alpha_cutoff = Number(v.(f64))
+
+            case k == "doubleSided": // Default false
+                res[idx].double_sided = v.(bool)
+
+            case k == "emissiveFactor": // Default [0, 0, 0]
+                for num, i in v.(json.Array) do res[idx].emissive_factor[i] = Number(num.(f64))
+
+            case k == "emissiveTexture":
+                res[idx].emissive_texture = texture_info_parse(v.(json.Object)) or_return
+
+            case k == "name":
+                res[idx].name = v.(string)
+
+            case k == "normalTexture":
+                res[idx].normal_texture = normal_texture_info_parse(v.(json.Object)) or_return
+
+            case k == "occlusionTexture":
+                res[idx].occlusion_texture = occlusion_texture_info_parse(v.(json.Object)) or_return
+
+            case k == "pbrMetallicRoughness":
+                res[idx].metallic_roughness = pbr_metallic_roughness_parse(v.(json.Object)) or_return
+
+            case k == EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case k == EXTRAS_KEY:
+                res[idx].extras = v
+            }
+        }
+    }
+    return res, nil
+}
+
+materials_free :: proc(materials: []Material) {
+    if len(materials) == 0 do return
+    for material in materials {
+        ext_free(material)
+        if material.emissive_texture != nil do ext_free(material.emissive_texture.?)
+        if material.normal_texture != nil do ext_free(material.normal_texture.?)
+        if material.occlusion_texture != nil do ext_free(material.occlusion_texture.?)
+        if material.metallic_roughness != nil {
+            if material.metallic_roughness.?.base_color_texture != nil do ext_free(material.metallic_roughness.?.base_color_texture.?)
+            if material.metallic_roughness.?.metallic_roughness_texture != nil do ext_free(material.metallic_roughness.?.metallic_roughness_texture.?)
+            ext_free(material.metallic_roughness.?)
+        }
+    }
+    delete(materials)
+}
+
+@(private, require_results)
+normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_Texture_Info, err: Error) {
+    index_set: bool
+    res.scale = 1
+
+    for k, v in object {
+        switch {
+        case k == "index": // Required
+            res.index = Integer(v.(f64))
+            index_set = true
+
+        case k == "texCoord": // Default 0
+            res.tex_coord = Integer(v.(f64))
+
+        case k == "scale": // Default 1
+            res.scale = Number(v.(f64))
+
+        case k == EXTENSIONS_KEY:
+            res.extras = v
+
+        case k == EXTRAS_KEY:
+            res.extras = v
+        }
+    }
+
+    if !index_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "index" }
+    }
+
+    return res, nil
+}
+
+@(private, require_results)
+occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occlusion_Texture_Info, err: Error) {
+    index_set: bool
+    res.strength = 1
+
+    for k, v in object {
+        switch {
+        case k == "index": // Required
+            res.index = Integer(v.(f64))
+            index_set = true
+
+        case k == "texCoord": // Default 0
+            res.tex_coord = Integer(v.(f64))
+
+        case k == "strength": // Default 1
+            res.strength = Number(v.(f64))
+
+        case k == EXTENSIONS_KEY:
+            res.extras = v
+
+        case k == EXTRAS_KEY:
+            res.extras = v
+        }
+    }
+
+    if !index_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "index" }
+    }
+
+    return res, nil
+}
+
+@(private, require_results)
+pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Metallic_Roughness, err: Error) {
+    res.base_color_factor = { 1, 1, 1, 1 }
+    res.metallic_factor = 1
+    res.roughness_factor = 1
+
+    for k, v in object {
+        switch {
+        case k == "baseColorFactor": // Default [ 1, 1, 1, 1 ]
+            for num, i in v.(json.Array) do res.base_color_factor[i] = Number(num.(f64))
+
+        case k == "baseColorTexture":
+            res.base_color_texture = texture_info_parse(v.(json.Object)) or_return
+
+        case k == "metallicFactor": // Default 1
+            res.metallic_factor = Number(v.(f64))
+
+        case k == "roughnessFactor": // Default 1
+            res.roughness_factor = Number(v.(f64))
+
+        case k == "metallicRoughnessTexture":
+            res.metallic_roughness_texture = texture_info_parse(v.(json.Object)) or_return
+
+        case k == EXTENSIONS_KEY:
+            res.extras = v
+
+        case k == EXTRAS_KEY:
+            res.extras = v
+        }
+    }
+
+    return res, nil
+}
+
+@(private, require_results)
 nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
     if NODES_KEY not_in object do return
 
     nodes_array := object[NODES_KEY].(json.Array)
     array_len := len(nodes_array)
     res = make([]Node, array_len)
-    defer if err != nil do delete(res)
 
     for node, idx in nodes_array {
         res[idx].mat = (matrix[4, 4]Number)(1)
@@ -488,10 +654,8 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
                 for child, i in children_array do res[idx].children[i] = Integer(child.(f64))
 
             case k == "matrix": // Default identity matrix
-            // Matrices are stored in column-major order. Odin matrices are indexed like this [row, col]
-                for num, i in v.(json.Array) {
-                    res[idx].mat[i % 4, i / 4] = Number(num.(f64))
-                }
+                // Matrices are stored in column-major order. Odin matrices are indexed like this [row, col]
+                for num, i in v.(json.Array) do res[idx].mat[i % 4, i / 4] = Number(num.(f64))
 
             case k == "mesh":
                 res[idx].mesh = Integer(v.(f64))
@@ -546,7 +710,6 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
     scenes_array := object[SCENES_KEY].(json.Array)
     array_len := len(scenes_array)
     res = make([]Scene, array_len)
-    defer if err != nil do delete(res)
 
     for scene, idx in scenes_array {
         for k, v in scene.(json.Object) {
@@ -596,4 +759,31 @@ extensions_names_parse :: proc(object: json.Object, name: string) -> (res: []str
 extensions_names_free :: proc(names: []string) {
     if len(names) == 0 do return
     delete(names)
+}
+
+@(private, require_results)
+texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Error) {
+    index_set: bool
+    for k, v in object {
+        switch {
+        case k == "index": //Required
+            res.index = Integer(v.(f64))
+            index_set = true
+
+        case k == "texCoord": // Default 0
+            res.tex_coord = Integer(v.(f64))
+
+        case k == EXTENSIONS_KEY:
+            res.extensions = v
+
+        case k == EXTRAS_KEY:
+            res.extras = v
+        }
+    }
+
+    if !index_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "index" }
+    }
+
+    return res, nil
 }

@@ -29,6 +29,8 @@ main :: proc() {
     fmt.println(data.buffer_views)
     fmt.println()
     fmt.println(data.nodes)
+    fmt.println()
+    fmt.println(data.materials)
     //data := [?]u32{ GLB_MAGIC, 2, 0 }
     //header := (cast(^GLB_Header)(raw_data(data[:])))^
     //mem.copy(&header, raw_data(data[:]), GLB_HEADER_SIZE)
