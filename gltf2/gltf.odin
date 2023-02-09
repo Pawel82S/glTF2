@@ -233,7 +233,7 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
             res.generator = v.(string)
 
         case k == "version": // Required
-            version, ok := strconv.parse_f32(v.(string))
+            version, ok := strconv.parse_f64(v.(string))
             if !ok {
                 return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = "version" }
             }
@@ -241,7 +241,7 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
             version_found = true
 
         case k == "minVersion":
-            version, ok := strconv.parse_f32(v.(string))
+            version, ok := strconv.parse_f64(v.(string))
             if !ok do continue
             res.min_version = version
 
@@ -831,7 +831,7 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
 
     for node, idx in nodes_array {
         res[idx].mat = (matrix[4, 4]Number)(1)
-        res[idx].rotation = quaternion128(1)
+        res[idx].rotation = Quaternion(1)
         res[idx].scale = { 1, 1, 1 }
 
         for k, v in node.(json.Object) {
@@ -863,7 +863,7 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
             case k == "rotation": // Default [0, 0, 0, 1]
                 rotation: [4]Number
                 for num, i in v.(json.Array) do rotation[i] = Number(num.(f64))
-                mem.copy(&res[idx].rotation, &rotation, size_of(quaternion128))
+                mem.copy(&res[idx].rotation, &rotation, size_of(Quaternion))
 
             case k == "translation": // Defalt [0, 0, 0]
                 for num, i in v.(json.Array) do res[idx].translation[i] = Number(num.(f64))

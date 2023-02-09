@@ -26,7 +26,9 @@ import "core:encoding/json"
 @private JSON_Object :: json.Object
 
 Integer :: u32
-Number :: f32
+Number :: f64
+Matrix4 :: matrix[4, 4]Number
+Quaternion :: quaternion256
 
 Options :: struct {
     is_glb, delete_content, parse_uris: bool,
@@ -388,8 +390,8 @@ Mesh_Target_Type :: enum {
     Node data structure
 */
 Node :: struct {
-    mat: matrix[4, 4]Number, // Default Identity Matrix
-    rotation: quaternion128, // Default [x = 0, y = 0, z = 0, w = 1]
+    mat: Matrix4, // Default Identity Matrix
+    rotation: Quaternion, // Default [x = 0, y = 0, z = 0, w = 1]
     scale: [3]Number, // Default [1, 1, 1]
     translation: [3]Number,
     camera, mesh, skin: Maybe(Integer),
