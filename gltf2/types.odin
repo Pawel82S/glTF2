@@ -352,7 +352,7 @@ Mesh_Primitive :: struct {
     extras: Extras,
 }
 
-Mesh_Primitive_Mode :: enum byte {
+Mesh_Primitive_Mode :: enum {
     Points,
     Lines,
     Line_Loop,
