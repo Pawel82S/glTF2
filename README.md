@@ -1,4 +1,4 @@
-# Why another glTF library?
+# Why another glTF2 library?
 1. I want to learn [Odin](https://odin-lang.org/) because I like philosophy behind it and syntax. I also tried [Zig](https://ziglang.org/) for few weeks, but it's syntax is not compelling to me.
 2. I don't like [cgltf](https://github.com/jkuhlmann/cgltf) implementation in [vendor:cgltf](https://pkg.odin-lang.org/vendor/cgltf/) and it doesn't work on *Nix based systems (for now), only on Windows.
 3. Odin has built-in many great native packages like [core/encoding/json](https://pkg.odin-lang.org/core/encoding/json/) so why not write glTF file format package that uses Odin types and remove C hint fields from cgltf wrapper?

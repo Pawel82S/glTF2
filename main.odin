@@ -24,6 +24,8 @@ main :: proc() {
     fmt.println()
     fmt.println("Scene:", data.scene)
     fmt.println()
+    fmt.println(data.scenes)
+    fmt.println()
     fmt.println(data.buffers)
     fmt.println()
     fmt.println(data.buffer_views)
@@ -31,6 +33,12 @@ main :: proc() {
     fmt.println(data.nodes)
     fmt.println()
     fmt.println(data.materials)
+    fmt.println()
+    fmt.println(data.meshes)
+    fmt.println()
+    fmt.println("Extensions used:", data.extensions_used)
+    fmt.println()
+    fmt.println("Extensions required:", data.extensions_required)
     //data := [?]u32{ GLB_MAGIC, 2, 0 }
     //header := (cast(^GLB_Header)(raw_data(data[:])))^
     //mem.copy(&header, raw_data(data[:]), GLB_HEADER_SIZE)

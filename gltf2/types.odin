@@ -347,7 +347,7 @@ Mesh_Primitive :: struct {
     attributes: map[string]Integer,
     mode: Mesh_Primitive_Mode, // Default Triangles(4)
     indices, material: Maybe(Integer),
-    targets: []Mesh_Attribute,
+    targets: []Mesh_Target,
     extensions: Extensions,
     extras: Extras,
 }
@@ -363,15 +363,15 @@ Mesh_Primitive_Mode :: enum byte {
 }
 
 // TODO: Verify if this is correct
-Mesh_Attribute :: struct {
-    type: Mesh_Attribute_Type,
+Mesh_Target :: struct {
+    type: Mesh_Target_Type,
     index: Integer,
     data: Accessor,
     name: string,
 }
 
 // TODO: Verify if this is correct
-Mesh_Attribute_Type :: enum {
+Mesh_Target_Type :: enum {
     Invalid,
     Position,
     Normal,
