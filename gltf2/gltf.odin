@@ -80,7 +80,7 @@ parse :: proc(file_content: []byte, opt := Options{}) -> (data: ^Data, err: Erro
     data.buffers = buffers_parse(parsed_object.(json.Object), opt.parse_uris) or_return
     data.buffer_views = buffer_views_parse(parsed_object.(json.Object)) or_return
     //data.cameras = cameras_parse(parsed_object.(json.Object)) or_return
-    //data.images = images_parse(parsed_object.(json.Object)) or_return
+    data.images = images_parse(parsed_object.(json.Object), opt.parse_uris) or_return
     data.materials = materials_parse(parsed_object.(json.Object)) or_return
     data.meshes = meshes_parse(parsed_object.(json.Object)) or_return
     data.nodes = nodes_parse(parsed_object.(json.Object)) or_return
@@ -111,6 +111,7 @@ unload :: proc(data: ^Data) {
     accessors_free(data.accessors)
     buffers_free(data.buffers)
     buffer_views_free(data.buffer_views)
+    images_free(data.images)
     materials_free(data.materials)
     meshes_free(data.meshes)
     nodes_free(data.nodes)
@@ -145,7 +146,7 @@ free_json_value :: proc(value: json.Value, extensions_and_extras := false) {
     }
 }
 
-@(private, require_results)
+@(require_results)
 extensions_names_parse :: proc(object: json.Object, name: string) -> (res: []string) {
     if name not_in object do return
 
@@ -217,7 +218,7 @@ uri_free :: proc(uri: Uri) {
 /*
     Asseet parsing
 */
-@(private, require_results)
+@(require_results)
 asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
     if ASSET_KEY not_in object do return res, GLTF_Error{ type = .JSON_Missing_Section, proc_name = #procedure, param = ASSET_KEY }
 
@@ -264,7 +265,7 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
 /*
     Accessors parsing
 */
-@(private, require_results)
+@(require_results)
 accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
     if ACCESSORS_KEY not_in object do return
 
@@ -375,7 +376,7 @@ accessors_free :: proc(accessors: []Accessor) {
     delete(accessors)
 }
 
-@(private, require_results)
+@(require_results)
 accessor_sparse_parse :: proc(object: json.Object) -> (res: Accessor_Sparse, err: Error) {
     unimplemented(#procedure)
 }
@@ -383,7 +384,7 @@ accessor_sparse_parse :: proc(object: json.Object) -> (res: Accessor_Sparse, err
 /*
     Buffers parsing
 */
-@(private, require_results)
+@(require_results)
 buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, err: Error) {
     if BUFFERS_KEY not_in object do return
 
@@ -433,7 +434,7 @@ buffers_free :: proc(buffers: []Buffer) {
 /*
     Buffer Views parsing
 */
-@(private, require_results)
+@(require_results)
 buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Error) {
     if BUFFER_VIEWS_KEY not_in object do return
 
@@ -491,9 +492,62 @@ buffer_views_free :: proc(views: []Buffer_View) {
 }
 
 /*
+    Images parsing
+*/
+@(require_results)
+images_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Image, err: Error) {
+    if IMAGES_KEY not_in object do return
+
+    images_array := object[IMAGES_KEY].(json.Array)
+    res = make([]Image, len(images_array))
+
+    for image, idx in images_array {
+        for k, v in image.(json.Object) {
+            switch {
+            case k == "bufferView":
+                res[idx].buffer_view = Integer(v.(f64))
+
+            case k == "mimeType":
+                switch {
+                case v.(string) == "image/jpeg":
+                    res[idx].type = .JPEG
+                case v.(string) == "image/png":
+                    res[idx].type = .PNG
+                case:
+                    return res, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = v.(string) }
+                }
+
+            case k == "name":
+                res[idx].name = v.(string)
+
+            case k == "uri":
+                res[idx].uri = parse_uri ? uri_parse(v.(string)) : Uri(v.(string))
+
+            case k == EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case k == EXTRAS_KEY:
+                res[idx].extras = v
+            }
+        }
+    }
+
+    return res, nil
+}
+
+images_free :: proc(images: []Image) {
+    if len(images) == 0 do return
+    for image in images {
+        uri_free(image.uri)
+        ext_free(image)
+    }
+    delete(images)
+}
+
+/*
     Materials parsing
 */
-@(private, require_results)
+@(require_results)
 materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
     if MATERIALS_KEY not_in object do return
 
@@ -568,7 +622,7 @@ materials_free :: proc(materials: []Material) {
     delete(materials)
 }
 
-@(private, require_results)
+@(require_results)
 normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_Texture_Info, err: Error) {
     index_set: bool
     res.scale = 1
@@ -600,7 +654,7 @@ normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_
     return res, nil
 }
 
-@(private, require_results)
+@(require_results)
 occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occlusion_Texture_Info, err: Error) {
     index_set: bool
     res.strength = 1
@@ -632,7 +686,7 @@ occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occl
     return res, nil
 }
 
-@(private, require_results)
+@(require_results)
 pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Metallic_Roughness, err: Error) {
     res.base_color_factor = { 1, 1, 1, 1 }
     res.metallic_factor = 1
@@ -669,7 +723,7 @@ pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Meta
 /*
     Meshes parsing
 */
-@(private, require_results)
+@(require_results)
 meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
     if MESHES_KEY not_in object do return
 
@@ -714,7 +768,7 @@ meshes_free :: proc(meshes: []Mesh) {
     delete(meshes)
 }
 
-@(private, require_results)
+@(require_results)
 mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err: Error) {
     res = make([]Mesh_Primitive, len(array))
 
@@ -760,7 +814,7 @@ mesh_primitives_free :: proc(primitives: []Mesh_Primitive) {
     delete(primitives)
 }
 
-@(private, require_results)
+@(require_results)
 mesh_targets_parse :: proc(object: json.Object) -> (res: []Mesh_Target, err: Error) {
     unimplemented(#procedure)
 }
@@ -768,7 +822,7 @@ mesh_targets_parse :: proc(object: json.Object) -> (res: []Mesh_Target, err: Err
 /*
     Nodes parsing
 */
-@(private, require_results)
+@(require_results)
 nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
     if NODES_KEY not_in object do return
 
@@ -843,7 +897,7 @@ nodes_free :: proc(nodes: []Node) {
 /*
     Scenes parsing
 */
-@(private, require_results)
+@(require_results)
 scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
     if SCENES_KEY not_in object do return
 
@@ -887,7 +941,7 @@ scenes_free :: proc(scenes: []Scene) {
 /*
     Textures parsing
 */
-@(private, require_results)
+@(require_results)
 texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Error) {
     index_set: bool
     for k, v in object {

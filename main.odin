@@ -30,6 +30,8 @@ main :: proc() {
     fmt.println()
     fmt.println(data.buffer_views)
     fmt.println()
+    fmt.println(data.images)
+    fmt.println()
     fmt.println(data.nodes)
     fmt.println()
     fmt.println(data.materials)
