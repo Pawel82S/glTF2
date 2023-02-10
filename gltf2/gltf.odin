@@ -173,8 +173,8 @@ uri_parse :: proc(uri: Uri) -> Uri {
     if type_idx == -1 do return uri
 
     type := str_data[:type_idx]
-    switch {
-    case type == "data":
+    switch type {
+    case "data":
         encoding_start_idx := strings.index_rune(str_data, ';') + 1
         if encoding_start_idx == 0 do return uri
         encoding_end_idx := strings.index_rune(str_data, ',')
@@ -182,8 +182,8 @@ uri_parse :: proc(uri: Uri) -> Uri {
 
         encoding := str_data[encoding_start_idx:encoding_end_idx]
 
-        switch {
-        case encoding == "base64":
+        switch encoding {
+        case "base64":
             return base64.decode(str_data[encoding_end_idx+1:])
         }
     }
@@ -225,30 +225,28 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
     version_found: bool
 
     for k, v in object[ASSET_KEY].(json.Object) {
-        switch {
-        case k == "copyright":
+        switch k {
+        case "copyright":
             res.copyright = v.(string)
 
-        case k == "generator":
+        case "generator":
             res.generator = v.(string)
 
-        case k == "version": // Required
+        case "version": // Required
             version, ok := strconv.parse_f64(v.(string))
-            if !ok {
-                return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = "version" }
-            }
+            if !ok do return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = "version" }
             res.version = Number(version)
             version_found = true
 
-        case k == "minVersion":
+        case "minVersion":
             version, ok := strconv.parse_f64(v.(string))
             if !ok do continue
-            res.min_version = version
+            res.min_version = Number(version)
 
-        case k == EXTENSIONS_KEY:
+        case EXTENSIONS_KEY:
             res.extensions = v
 
-        case k == EXTRAS_KEY:
+        case EXTRAS_KEY:
             res.extras = v
 
         }
@@ -276,51 +274,51 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
         component_type_set, count_set, type_set: bool
 
         for k, v in access.(json.Object){
-            switch {
-            case k == "bufferView":
+            switch k {
+            case "bufferView":
                 res[idx].buffer_view = Integer(v.(f64))
 
-            case k == "byteOffset":
+            case "byteOffset":
                 res[idx].byte_offset = Integer(v.(f64))
 
-            case k == "componentType": // Required
+            case "componentType": // Required
                 res[idx].component_type = Component_Type(v.(f64))
                 component_type_set = true
 
-            case k == "normalized":
+            case "normalized":
                 res[idx].normalized = v.(bool)
 
-            case k == "count": // Required
+            case "count": // Required
                 res[idx].count = Integer(v.(f64))
                 count_set = true
 
-            case k == "type": // Required
-                switch {
-                case v.(string) == "SCALAR":
+            case "type": // Required
+                switch v.(string) {
+                case "SCALAR":
                     res[idx].type = .Scalar
                     type_set = true
 
-                case v.(string) == "VEC2":
+                case "VEC2":
                     res[idx].type = .Vector2
                     type_set = true
 
-                case v.(string) == "VEC3":
+                case "VEC3":
                     res[idx].type = .Vector3
                     type_set = true
 
-                case v.(string) == "VEC4":
+                case "VEC4":
                     res[idx].type = .Vector4
                     type_set = true
 
-                case v.(string) == "MAT2":
+                case "MAT2":
                     res[idx].type = .Matrix2
                     type_set = true
 
-                case v.(string) == "MAT3":
+                case "MAT3":
                     res[idx].type = .Matrix3
                     type_set = true
 
-                case v.(string) == "MAT4":
+                case "MAT4":
                     res[idx].type = .Matrix4
                     type_set = true
 
@@ -328,30 +326,26 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
                     return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string) }
                 }
 
-            case k == "max":
+            case "max":
                 max: [16]Number
-                for num, i in v.(json.Array) {
-                    max[i] = Number(num.(f64))
-                }
+                for num, i in v.(json.Array) do max[i] = Number(num.(f64))
                 res[idx].max = max
 
-            case k == "min":
+            case "min":
                 min: [16]Number
-                for num, i in v.(json.Array) {
-                    min[i] = Number(num.(f64))
-                }
+                for num, i in v.(json.Array) do min[i] = Number(num.(f64))
                 res[idx].min = min
 
-            case k == "sparse":
+            case "sparse":
                 res[idx].sparse = accessor_sparse_parse(v.(json.Object)) or_return
 
-            case k == "name":
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extensions = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -395,21 +389,21 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, e
         byte_length_set: bool
 
         for k, v in buffer.(json.Object) {
-            switch {
-            case k == "byteLength": // Required
+            switch k {
+            case "byteLength": // Required
                 res[idx].byte_length = Integer(v.(f64))
                 byte_length_set = true
 
-            case k == "name":
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == "uri":
+            case "uri":
                 res[idx].uri = parse_uri ? uri_parse(v.(string)) : Uri(v.(string))
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extensions = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -445,31 +439,31 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
         buffer_set, byte_length_set: bool
 
         for k, v in view.(json.Object) {
-            switch {
-            case k == "buffer": // Required
+            switch k {
+            case "buffer": // Required
                 res[idx].buffer = Integer(v.(f64))
                 buffer_set = true
 
-            case k == "byteLength": // Required
+            case "byteLength": // Required
                 res[idx].byte_length = Integer(v.(f64))
                 byte_length_set = true
 
-            case k == "byteOffset":
+            case "byteOffset":
                 res[idx].byte_offset = Integer(v.(f64))
 
-            case k == "byteStride":
+            case "byteStride":
                 res[idx].byte_stride = Integer(v.(f64))
 
-            case k == "name":
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == "target":
+            case "target":
                 res[idx].target = Buffer_Type_Hint(v.(f64))
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extensions = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -503,30 +497,30 @@ images_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Image, err
 
     for image, idx in images_array {
         for k, v in image.(json.Object) {
-            switch {
-            case k == "bufferView":
+            switch k {
+            case "bufferView":
                 res[idx].buffer_view = Integer(v.(f64))
 
-            case k == "mimeType":
-                switch {
-                case v.(string) == "image/jpeg":
+            case "mimeType":
+                switch v.(string) {
+                case "image/jpeg":
                     res[idx].type = .JPEG
-                case v.(string) == "image/png":
+                case "image/png":
                     res[idx].type = .PNG
                 case:
                     return res, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = v.(string) }
                 }
 
-            case k == "name":
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == "uri":
+            case "uri":
                 res[idx].uri = parse_uri ? uri_parse(v.(string)) : Uri(v.(string))
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extensions = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -558,47 +552,47 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
         res[idx].alpha_cutoff = 0.5
 
         for k, v in material.(json.Object) {
-            switch {
-            case k == "alphaMode": // Default Opaque
-                switch {
-                case v.(string) == "OPAQUE":
+            switch k {
+            case "alphaMode": // Default Opaque
+                switch v.(string) {
+                case "OPAQUE":
                     res[idx].alpha_mode = .Opaque
-                case v.(string) == "MASK":
+                case "MASK":
                     res[idx].alpha_mode = .Mask
-                case v.(string) == "BLEND":
+                case "BLEND":
                     res[idx].alpha_mode = .Blend
                 case:
                     return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string) }
                 }
 
-            case k == "alphaCutoff": // Default 0.5
+            case "alphaCutoff": // Default 0.5
                 res[idx].alpha_cutoff = Number(v.(f64))
 
-            case k == "doubleSided": // Default false
+            case "doubleSided": // Default false
                 res[idx].double_sided = v.(bool)
 
-            case k == "emissiveFactor": // Default [0, 0, 0]
+            case "emissiveFactor": // Default [0, 0, 0]
                 for num, i in v.(json.Array) do res[idx].emissive_factor[i] = Number(num.(f64))
 
-            case k == "emissiveTexture":
+            case "emissiveTexture":
                 res[idx].emissive_texture = texture_info_parse(v.(json.Object)) or_return
 
-            case k == "name":
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == "normalTexture":
+            case "normalTexture":
                 res[idx].normal_texture = normal_texture_info_parse(v.(json.Object)) or_return
 
-            case k == "occlusionTexture":
+            case "occlusionTexture":
                 res[idx].occlusion_texture = occlusion_texture_info_parse(v.(json.Object)) or_return
 
-            case k == "pbrMetallicRoughness":
+            case "pbrMetallicRoughness":
                 res[idx].metallic_roughness = pbr_metallic_roughness_parse(v.(json.Object)) or_return
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extensions = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -628,21 +622,21 @@ normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_
     res.scale = 1
 
     for k, v in object {
-        switch {
-        case k == "index": // Required
+        switch k {
+        case "index": // Required
             res.index = Integer(v.(f64))
             index_set = true
 
-        case k == "texCoord": // Default 0
+        case "texCoord": // Default 0
             res.tex_coord = Integer(v.(f64))
 
-        case k == "scale": // Default 1
+        case "scale": // Default 1
             res.scale = Number(v.(f64))
 
-        case k == EXTENSIONS_KEY:
+        case EXTENSIONS_KEY:
             res.extras = v
 
-        case k == EXTRAS_KEY:
+        case EXTRAS_KEY:
             res.extras = v
         }
     }
@@ -660,21 +654,21 @@ occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occl
     res.strength = 1
 
     for k, v in object {
-        switch {
-        case k == "index": // Required
+        switch k {
+        case "index": // Required
             res.index = Integer(v.(f64))
             index_set = true
 
-        case k == "texCoord": // Default 0
+        case "texCoord": // Default 0
             res.tex_coord = Integer(v.(f64))
 
-        case k == "strength": // Default 1
+        case "strength": // Default 1
             res.strength = Number(v.(f64))
 
-        case k == EXTENSIONS_KEY:
+        case EXTENSIONS_KEY:
             res.extras = v
 
-        case k == EXTRAS_KEY:
+        case EXTRAS_KEY:
             res.extras = v
         }
     }
@@ -693,26 +687,26 @@ pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Meta
     res.roughness_factor = 1
 
     for k, v in object {
-        switch {
-        case k == "baseColorFactor": // Default [ 1, 1, 1, 1 ]
+        switch k {
+        case "baseColorFactor": // Default [ 1, 1, 1, 1 ]
             for num, i in v.(json.Array) do res.base_color_factor[i] = Number(num.(f64))
 
-        case k == "baseColorTexture":
+        case "baseColorTexture":
             res.base_color_texture = texture_info_parse(v.(json.Object)) or_return
 
-        case k == "metallicFactor": // Default 1
+        case "metallicFactor": // Default 1
             res.metallic_factor = Number(v.(f64))
 
-        case k == "roughnessFactor": // Default 1
+        case "roughnessFactor": // Default 1
             res.roughness_factor = Number(v.(f64))
 
-        case k == "metallicRoughnessTexture":
+        case "metallicRoughnessTexture":
             res.metallic_roughness_texture = texture_info_parse(v.(json.Object)) or_return
 
-        case k == EXTENSIONS_KEY:
+        case EXTENSIONS_KEY:
             res.extras = v
 
-        case k == EXTRAS_KEY:
+        case EXTRAS_KEY:
             res.extras = v
         }
     }
@@ -732,21 +726,21 @@ meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
 
     for mesh, idx in meshes_array {
         for k, v in mesh.(json.Object) {
-            switch {
-            case k == "name":
+            switch k {
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == "primitives": // Required
+            case "primitives": // Required
                 res[idx].primitives = mesh_primitives_parse(v.(json.Array)) or_return
 
-            case k == "weights":
+            case "weights":
                 res[idx].weights = make([]Number, len(v.(json.Array)))
                 for num, i in v.(json.Array) do res[idx].weights[i] = Number(num.(f64))
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extras = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -776,30 +770,33 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
         res[idx].mode = .Triangles
 
         for key, val in primitive.(json.Object) {
-            switch {
-            case key == "attributes": // Required
+            switch key {
+            case "attributes": // Required
                 for k, v in val.(json.Object) do res[idx].attributes[k] = Integer(v.(f64))
 
-            case key == "indices":
+            case "indices":
                 res[idx].indices = Integer(val.(f64))
 
-            case key == "material":
+            case "material":
                 res[idx].material = Integer(val.(f64))
 
-            case key == "mode": // Default Triangles(4)
+            case "mode": // Default Triangles(4)
                 res[idx].mode = Mesh_Primitive_Mode(val.(f64))
 
-            case key == "targets":
+            case "targets":
                 res[idx].targets = mesh_targets_parse(val.(json.Object)) or_return
 
-            case key == "extensions":
+            case EXTENSIONS_KEY:
                 res[idx].extensions = val
 
-            case key == "extras":
+            case EXTRAS_KEY:
                 res[idx].extras = val
             }
         }
 
+        if len(res[idx].attributes) == 0 {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "attributes" }
+        }
     }
 
     return res, nil
@@ -830,53 +827,51 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
     res = make([]Node, len(nodes_array))
 
     for node, idx in nodes_array {
-        res[idx].mat = (matrix[4, 4]Number)(1)
+        res[idx].mat = Matrix4(1)
         res[idx].rotation = Quaternion(1)
         res[idx].scale = { 1, 1, 1 }
 
         for k, v in node.(json.Object) {
-            switch {
-            case k == "camera":
+            switch k {
+            case "camera":
                 res[idx].camera = Integer(v.(f64))
 
-            case k == "children":
-                children_array := v.(json.Array)
-                res[idx].children = make([]Integer, len(children_array))
-                for child, i in children_array do res[idx].children[i] = Integer(child.(f64))
+            case "children":
+                res[idx].children = make([]Integer, len(v.(json.Array)))
+                for child, i in v.(json.Array) do res[idx].children[i] = Integer(child.(f64))
 
-            case k == "matrix": // Default identity matrix
+            case "matrix": // Default identity matrix
                 // Matrices are stored in column-major order. Odin matrices are indexed like this [row, col]
                 for num, i in v.(json.Array) do res[idx].mat[i % 4, i / 4] = Number(num.(f64))
 
-            case k == "mesh":
+            case "mesh":
                 res[idx].mesh = Integer(v.(f64))
 
-            case k == "name":
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == "scale": // Default [1, 1, 1]
+            case "scale": // Default [1, 1, 1]
                 for num, i in v.(json.Array) do res[idx].scale[i] = Number(num.(f64))
 
-            case k == "skin":
+            case "skin":
                 res[idx].skin = Integer(v.(f64))
 
-            case k == "rotation": // Default [0, 0, 0, 1]
+            case "rotation": // Default [0, 0, 0, 1]
                 rotation: [4]Number
                 for num, i in v.(json.Array) do rotation[i] = Number(num.(f64))
                 mem.copy(&res[idx].rotation, &rotation, size_of(Quaternion))
 
-            case k == "translation": // Defalt [0, 0, 0]
+            case "translation": // Defalt [0, 0, 0]
                 for num, i in v.(json.Array) do res[idx].translation[i] = Number(num.(f64))
 
-            case k == "weights":
-                weights_array := v.(json.Array)
-                res[idx].weights = make([]Number, len(weights_array))
-                for weight, i in weights_array do res[idx].weights[i] = Number(weight.(f64))
+            case "weights":
+                res[idx].weights = make([]Number, len(v.(json.Array)))
+                for weight, i in v.(json.Array) do res[idx].weights[i] = Number(weight.(f64))
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extensions = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -902,25 +897,22 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
     if SCENES_KEY not_in object do return
 
     scenes_array := object[SCENES_KEY].(json.Array)
-    array_len := len(scenes_array)
-    res = make([]Scene, array_len)
+    res = make([]Scene, len(scenes_array))
 
     for scene, idx in scenes_array {
         for k, v in scene.(json.Object) {
-            switch {
-            case k == "nodes":
+            switch k {
+            case "nodes":
                 res[idx].nodes = make([]Integer, len(v.(json.Array)))
-                for node, i in v.(json.Array) {
-                    res[idx].nodes[i] = Integer(node.(f64))
-                }
+                for node, i in v.(json.Array) do res[idx].nodes[i] = Integer(node.(f64))
 
-            case k == "name":
+            case "name":
                 res[idx].name = v.(string)
 
-            case k == EXTENSIONS_KEY:
+            case EXTENSIONS_KEY:
                 res[idx].extensions = v
 
-            case k == EXTRAS_KEY:
+            case EXTRAS_KEY:
                 res[idx].extras = v
             }
         }
@@ -945,18 +937,18 @@ scenes_free :: proc(scenes: []Scene) {
 texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Error) {
     index_set: bool
     for k, v in object {
-        switch {
-        case k == "index": //Required
+        switch k {
+        case "index": //Required
             res.index = Integer(v.(f64))
             index_set = true
 
-        case k == "texCoord": // Default 0
+        case "texCoord": // Default 0
             res.tex_coord = Integer(v.(f64))
 
-        case k == EXTENSIONS_KEY:
+        case EXTENSIONS_KEY:
             res.extensions = v
 
-        case k == EXTRAS_KEY:
+        case EXTRAS_KEY:
             res.extras = v
         }
     }
