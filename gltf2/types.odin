@@ -28,7 +28,7 @@ import "core:encoding/json"
 Integer :: u32
 Number :: f64
 Matrix4 :: matrix[4, 4]Number
-Quaternion :: quaternion256
+Quaternion :: quaternion256 when Number == f64 else quaternion128
 
 Options :: struct {
     is_glb, delete_content, parse_uris: bool,
@@ -346,7 +346,7 @@ Mesh :: struct {
 }
 
 Mesh_Primitive :: struct {
-    attributes: map[string]Integer,
+    attributes: map[string]Integer, // Required
     mode: Mesh_Primitive_Mode, // Default Triangles(4)
     indices, material: Maybe(Integer),
     targets: []Mesh_Target,
