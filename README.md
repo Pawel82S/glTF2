@@ -5,6 +5,35 @@
 4. Learning how to implement specification document into working code. In this case it's [glTF2](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
 5. Because it's fun.
 
+# Progress
+**Loading of binary files (.glb) is not supported yet**
+
+:heavy_check_mark: - fully implemented
+:heavy_plus_sign: - partially implemented
+:x: - not implemented
+
+| Type | Status | Details | Specification URL |
+|---|---|---|---|
+| Accessors | :heavy_plus_sign: | Missing accessor sparse values | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-accessor |
+| Animations | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-animation |
+| Asset | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-asset |
+| Buffers | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-buffer |
+| Buffer Views | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-bufferview |
+| Cameras | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-camera |
+| Images | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-image |
+| Materials | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material |
+| Meshes | :heavy_plus_sign: | Missing mesh primitive targets | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh |
+| Nodes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node |
+| Samplers | :x: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-sampler |
+| Scene | :heavy_check_mark: | It's just an integer | |
+| Scenes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-scene |
+| Skins | :x: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin |
+| Textures | :heavy_plus_sign: | Only Texture Info | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-texture |
+| Extensions | :heavy_check_mark: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extension |
+| Extensions Used | :heavy_check_mark: | Array of strings | |
+| Extensions Required | :heavy_check_mark: | Array of strings | |
+| Extras | :heavy_check_mark: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras |
+
 # How to use it
 1. Download [glTF2](https://github.com/Pawel82S/glTF2) package from github and put in your source folder.
 2. Load entire glTF2 file into memory (simplest way).
@@ -31,7 +60,7 @@ import "gltf2"
 
 main :: proc () {
     // Set options for gltf2 parser.
-    // is_glb will gltf2 package if file is in binary format. Most likely it will have "*.glb" suffix. By default it's gltf or JSON file format.
+    // is_glb must be set to true if file is in binary format. Most likely it will have "*.glb" suffix. By default it's gltf or JSON file format.
     // delete_content set to true will delete bytes provided in procedure call. This is what 'load_from_file' does.
     // parse_uris will try to parse all URI links, this will take CPU time to do so it's not default option.
     options := gltf2.Options{ is_glb = [true/false(default)], delete_content = [true/false(default)], parse_uris = [true/false(default)] }
@@ -47,7 +76,6 @@ main :: proc () {
 }
 ```
 # How You can help.
-1. Implement missing functionality (package is still missing a lot of stuff).
+1. Implement missing functionality (package is still missing some stuff).
 2. Remove bugs (they are for sure).
-3. Write documentation with examples.
-4. Optimize code.
+3. Optimize code.
