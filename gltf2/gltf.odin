@@ -108,6 +108,7 @@ unload :: proc(data: ^Data) {
 
     json.destroy_value(data.json_value)
     accessors_free(data.accessors)
+    animations_free(data.animations)
     buffers_free(data.buffers)
     buffer_views_free(data.buffer_views)
     cameras_free(data.cameras)
@@ -178,7 +179,7 @@ uri_free :: proc(uri: Uri) {
 
 @(private)
 warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 0) {
-    fmt.printf("WARINING: Unexpected data in proc: %v at index: %v\nKey: %v, valalue: %v", proc_name, idx, key, val)
+    fmt.printf("WARINING: Unexpected data in proc: %v at index: %v\nKey: %v, valalue: %v\n", proc_name, idx, key, val)
 }
 
 /*get_chunk :: proc(file_content: []byte, expected_type := Chunk_Type.Other) -> (ch: GLB_Chunk, ok: bool) {
@@ -359,6 +360,165 @@ accessors_free :: proc(accessors: []Accessor) {
 @(require_results)
 accessor_sparse_parse :: proc(object: json.Object) -> (res: Accessor_Sparse, err: Error) {
     unimplemented(#procedure)
+}
+
+/*
+    Animations parsing
+*/
+@(require_results)
+animations_parse :: proc(object: json.Object) -> (res: []Animation, err: Error) {
+    if ANIMATIONS_KEY not_in object do return
+
+    animations_array := object[ANIMATIONS_KEY].(json.Array)
+    res = make([]Animation, len(animations_array))
+
+    for animation, idx in animations_array {
+        for k, v in animation.(json.Object) {
+            switch k {
+            case "channels": // Required
+                res[idx].channels = animation_channels_parse(v.(json.Array)) or_return
+
+            case "samplers": // Required
+                res[idx].samplers = animation_samplers_parse(v.(json.Array)) or_return
+
+            case "name":
+                res[idx].name = v.(string)
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+
+        if len(res[idx].channels) == 0 {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "channels" }
+        }
+        if len(res[idx].samplers) == 0 {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "samplers" }
+        }
+    }
+    return res, nil
+}
+
+animations_free :: proc(animations: []Animation) {
+    if len(animations) == 0 do return
+    for animation in animations {
+        if len(animation.channels) > 0 do delete(animation.channels)
+        if len(animation.samplers) > 0 do delete(animation.samplers)
+    }
+    delete(animations)
+}
+
+@(require_results)
+animation_channels_parse :: proc(array: json.Array) -> (res: []Animation_Channel, err: Error) {
+    res = make([]Animation_Channel, len(array))
+
+    for channel, idx in array {
+        sampler_set, target_set: bool
+
+        for k, v in channel.(json.Object) {
+            switch k {
+            case "sampler": // Required
+                res[idx].sampler = Integer(v.(f64))
+                sampler_set = true
+
+            case "target": // Required
+                res[idx].target = animation_channel_target_parse(v.(json.Object)) or_return
+                target_set = true
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+
+        if !sampler_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "sampler" }
+        }
+        if !target_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "target" }
+        }
+    }
+
+    return res, nil
+}
+
+@(require_results)
+animation_channel_target_parse :: proc(object: json.Object) -> (res: Animation_Channel_Target, err: Error) {
+    path_set: bool
+
+    for k, v in object {
+        switch k {
+        case "node":
+            res.node = Integer(v.(f64))
+
+        case "path": // Required
+            res.path = v.(string)
+            path_set = true
+
+        case EXTENSIONS_KEY:
+            res.extensions = v
+
+        case EXTRAS_KEY:
+            res.extras = v
+
+        case: warning_unexpected_data(#procedure, k, v)
+        }
+    }
+
+    if !path_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "path" }
+    }
+
+    return res, nil
+}
+
+@(require_results)
+animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler, err: Error) {
+    res = make([]Animation_Sampler, len(array))
+
+    for sampler, idx in array {
+        input_set, output_set: bool
+
+        for k, v in sampler.(json.Object) {
+            switch k {
+            case "input": // Required
+                res[idx].input = Integer(v.(f64))
+                input_set = true
+
+            case "interpolation": // Defalt Linear(0)
+                res[idx].interpolation = Interpolation_Algorithm(v.(f64))
+
+            case "output": // Required
+                res[idx].output = Integer(v.(f64))
+                output_set = true
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v)
+            }
+        }
+
+        if !input_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "input" }
+        }
+        if !output_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "output" }
+        }
+    }
+    return res, nil
 }
 
 /*
