@@ -125,7 +125,6 @@ unload :: proc(data: ^Data) {
 /*
     Utilitiy procedures
 */
-// Free extensions and extras
 @(require_results)
 extensions_names_parse :: proc(object: json.Object, name: string) -> (res: []string) {
     if name not_in object do return
@@ -530,6 +529,116 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
 }
 
 /*
+    Buffers parsing
+*/
+@(require_results)
+buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, err: Error) {
+    if BUFFERS_KEY not_in object do return
+
+    buffers_array := object[BUFFERS_KEY].(json.Array)
+    res = make([]Buffer, len(buffers_array))
+
+    for buffer, idx in buffers_array {
+        byte_length_set: bool
+
+        for k, v in buffer.(json.Object) {
+            switch k {
+            case "byteLength": // Required
+                res[idx].byte_length = Integer(v.(f64))
+                byte_length_set = true
+
+            case "name":
+                res[idx].name = v.(string)
+
+            case "uri":
+                res[idx].uri = parse_uri ? uri_parse(v.(string)) : Uri(v.(string))
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+
+        if !byte_length_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
+        }
+    }
+
+    return res, nil
+}
+
+buffers_free :: proc(buffers: []Buffer) {
+    if len(buffers) == 0 do return
+    for buffer in buffers do uri_free(buffer.uri)
+    delete(buffers)
+}
+
+/*
+    Buffer Views parsing
+*/
+@(require_results)
+buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Error) {
+    if BUFFER_VIEWS_KEY not_in object do return
+
+    views_array := object[BUFFER_VIEWS_KEY].(json.Array)
+    res = make([]Buffer_View, len(views_array))
+
+    for view, idx in views_array {
+        buffer_set, byte_length_set: bool
+
+        for k, v in view.(json.Object) {
+            switch k {
+            case "buffer": // Required
+                res[idx].buffer = Integer(v.(f64))
+                buffer_set = true
+
+            case "byteLength": // Required
+                res[idx].byte_length = Integer(v.(f64))
+                byte_length_set = true
+
+            case "byteOffset":
+                res[idx].byte_offset = Integer(v.(f64))
+
+            case "byteStride":
+                res[idx].byte_stride = Integer(v.(f64))
+
+            case "name":
+                res[idx].name = v.(string)
+
+            case "target":
+                res[idx].target = Buffer_Type_Hint(v.(f64))
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+
+        if !buffer_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "buffer" }
+        }
+        if !byte_length_set {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
+        }
+    }
+
+    return res, nil
+}
+
+buffer_views_free :: proc(views: []Buffer_View) {
+    if len(views) == 0 do return
+    delete(views)
+}
+
+/*
     Cameras parsing
 */
 @(require_results)
@@ -662,116 +771,6 @@ perspective_camera_parse :: proc(object: json.Object) -> (res: Perspective_Camer
     }
 
     return res, nil
-}
-
-/*
-    Buffers parsing
-*/
-@(require_results)
-buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, err: Error) {
-    if BUFFERS_KEY not_in object do return
-
-    buffers_array := object[BUFFERS_KEY].(json.Array)
-    res = make([]Buffer, len(buffers_array))
-
-    for buffer, idx in buffers_array {
-        byte_length_set: bool
-
-        for k, v in buffer.(json.Object) {
-            switch k {
-            case "byteLength": // Required
-                res[idx].byte_length = Integer(v.(f64))
-                byte_length_set = true
-
-            case "name":
-                res[idx].name = v.(string)
-
-            case "uri":
-                res[idx].uri = parse_uri ? uri_parse(v.(string)) : Uri(v.(string))
-
-            case EXTENSIONS_KEY:
-                res[idx].extensions = v
-
-            case EXTRAS_KEY:
-                res[idx].extras = v
-
-            case: warning_unexpected_data(#procedure, k, v, idx)
-            }
-        }
-
-        if !byte_length_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
-        }
-    }
-
-    return res, nil
-}
-
-buffers_free :: proc(buffers: []Buffer) {
-    if len(buffers) == 0 do return
-    for buffer in buffers do uri_free(buffer.uri)
-    delete(buffers)
-}
-
-/*
-    Buffer Views parsing
-*/
-@(require_results)
-buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Error) {
-    if BUFFER_VIEWS_KEY not_in object do return
-
-    views_array := object[BUFFER_VIEWS_KEY].(json.Array)
-    res = make([]Buffer_View, len(views_array))
-
-    for view, idx in views_array {
-        buffer_set, byte_length_set: bool
-
-        for k, v in view.(json.Object) {
-            switch k {
-            case "buffer": // Required
-                res[idx].buffer = Integer(v.(f64))
-                buffer_set = true
-
-            case "byteLength": // Required
-                res[idx].byte_length = Integer(v.(f64))
-                byte_length_set = true
-
-            case "byteOffset":
-                res[idx].byte_offset = Integer(v.(f64))
-
-            case "byteStride":
-                res[idx].byte_stride = Integer(v.(f64))
-
-            case "name":
-                res[idx].name = v.(string)
-
-            case "target":
-                res[idx].target = Buffer_Type_Hint(v.(f64))
-
-            case EXTENSIONS_KEY:
-                res[idx].extensions = v
-
-            case EXTRAS_KEY:
-                res[idx].extras = v
-
-            case: warning_unexpected_data(#procedure, k, v, idx)
-            }
-        }
-
-        if !buffer_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "buffer" }
-        }
-        if !byte_length_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
-        }
-    }
-
-    return res, nil
-}
-
-buffer_views_free :: proc(views: []Buffer_View) {
-    if len(views) == 0 do return
-    delete(views)
 }
 
 /*
