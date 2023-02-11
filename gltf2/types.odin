@@ -70,6 +70,8 @@ Data :: struct {
     extensions_required: []string,
     extensions: Extensions,
     extras: Extras,
+
+    json_value: json.Value,
 }
 
 Error :: union {

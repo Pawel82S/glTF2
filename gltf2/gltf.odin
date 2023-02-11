@@ -15,7 +15,6 @@ GLB_HEADER_SIZE :: size_of(GLB_Header)
 GLTF_MIN_VERSION :: 2
 
 
-
 /*
     Main library interface procedures
 */
@@ -26,26 +25,30 @@ load_from_file :: proc(file_name: string, parse_uris := false, allocator := cont
     file_content, ok := os.read_entire_file(file_name, allocator)
     if !ok do return nil, GLTF_Error{ type = .Cant_Read_File, proc_name = #procedure, param = file_name }
 
-    switch strings.to_lower(filepath.ext(file_name)) {
+    options := Options{ parse_uris = parse_uris, delete_content = true }
+    switch strings.to_lower(filepath.ext(file_name), context.temp_allocator) {
     case ".gltf":
-        return parse(file_content, { parse_uris = parse_uris, delete_content = true })
+        return parse(file_content, options, allocator)
     case ".glb":
-        return parse(file_content, { is_glb = true, parse_uris = parse_uris, delete_content = true })
+        options.is_glb = true
+        return parse(file_content, options, allocator)
     case:
         return nil, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = file_name }
     }
 }
 
 @(require_results)
-parse :: proc(file_content: []byte, opt := Options{}) -> (data: ^Data, err: Error) {
+parse :: proc(file_content: []byte, opt := Options{}, allocator := context.allocator) -> (data: ^Data, err: Error) {
     defer if opt.delete_content do delete(file_content)
-    defer if err != nil do unload(data)
 
     if len(file_content) < GLB_HEADER_SIZE {
         return data, GLTF_Error{ type = .Data_Too_Short, proc_name = #procedure }
     }
 
+    context.allocator = allocator
     data = new(Data)
+    defer if err != nil do unload(data)
+
     json_data := file_content
     content_index: u32
 
@@ -65,11 +68,7 @@ parse :: proc(file_content: []byte, opt := Options{}) -> (data: ^Data, err: Erro
 
     json_parser := json.make_parser(json_data)
     parsed_object, json_err := json.parse_object(&json_parser)
-    defer if err == nil {
-        free_json_value(parsed_object)
-    } else {
-        free_json_value(parsed_object, true)
-    }
+    data.json_value = parsed_object
     if json_err != .None && json_err != .EOF {
         return data, JSON_Error{ type = json_err, parser = json_parser }
     }
@@ -107,7 +106,7 @@ parse :: proc(file_content: []byte, opt := Options{}) -> (data: ^Data, err: Erro
 unload :: proc(data: ^Data) {
     if data == nil do return
 
-    ext_free(data.asset)
+    json.destroy_value(data.json_value)
     accessors_free(data.accessors)
     buffers_free(data.buffers)
     buffer_views_free(data.buffer_views)
@@ -118,7 +117,6 @@ unload :: proc(data: ^Data) {
     scenes_free(data.scenes)
     extensions_names_free(data.extensions_required)
     extensions_names_free(data.extensions_used)
-    ext_free(data)
     free(data)
 }
 
@@ -126,26 +124,6 @@ unload :: proc(data: ^Data) {
     Utilitiy procedures
 */
 // Free extensions and extras
-ext_free :: proc(str: $T) {
-    if str.extensions != nil do free_json_value(str.extensions, true)
-    if str.extras != nil do free_json_value(str.extras, true)
-}
-
-free_json_value :: proc(value: json.Value, extensions_and_extras := false) {
-    #partial switch val in value {
-    case json.Array:
-        for v in val do free_json_value(v, extensions_and_extras)
-        delete(val)
-
-    case json.Object:
-        for k, v in val {
-            if !extensions_and_extras && (k == EXTENSIONS_KEY || k == EXTRAS_KEY) do continue
-            free_json_value(v, extensions_and_extras)
-        }
-        delete(val)
-    }
-}
-
 @(require_results)
 extensions_names_parse :: proc(object: json.Object, name: string) -> (res: []string) {
     if name not_in object do return
@@ -195,6 +173,11 @@ uri_free :: proc(uri: Uri) {
     if data, ok := uri.([]byte); ok {
         delete(data)
     }
+}
+
+@(private)
+warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 0) {
+    fmt.printf("WARINING: Unexpected data in proc: %v at index: %v\nKey: %v, valalue: %v", proc_name, idx, key, val)
 }
 
 /*get_chunk :: proc(file_content: []byte, expected_type := Chunk_Type.Other) -> (ch: GLB_Chunk, ok: bool) {
@@ -249,6 +232,7 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
         case EXTRAS_KEY:
             res.extras = v
 
+        case: warning_unexpected_data(#procedure, k, v)
         }
     }
 
@@ -347,6 +331,8 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
@@ -366,7 +352,6 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
 
 accessors_free :: proc(accessors: []Accessor) {
     if len(accessors) == 0 do return
-    for accessor in accessors do ext_free(accessor)
     delete(accessors)
 }
 
@@ -405,6 +390,8 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, e
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
@@ -418,10 +405,7 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, e
 
 buffers_free :: proc(buffers: []Buffer) {
     if len(buffers) == 0 do return
-    for buffer in buffers {
-        uri_free(buffer.uri)
-        ext_free(buffer)
-    }
+    for buffer in buffers do uri_free(buffer.uri)
     delete(buffers)
 }
 
@@ -465,6 +449,8 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
@@ -481,7 +467,6 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
 
 buffer_views_free :: proc(views: []Buffer_View) {
     if len(views) == 0 do return
-    for view in views do ext_free(view)
     delete(views)
 }
 
@@ -522,6 +507,8 @@ images_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Image, err
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -531,10 +518,7 @@ images_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Image, err
 
 images_free :: proc(images: []Image) {
     if len(images) == 0 do return
-    for image in images {
-        uri_free(image.uri)
-        ext_free(image)
-    }
+    for image in images do uri_free(image.uri)
     delete(images)
 }
 
@@ -594,6 +578,8 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -602,17 +588,6 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
 
 materials_free :: proc(materials: []Material) {
     if len(materials) == 0 do return
-    for material in materials {
-        ext_free(material)
-        if material.emissive_texture != nil do ext_free(material.emissive_texture.?)
-        if material.normal_texture != nil do ext_free(material.normal_texture.?)
-        if material.occlusion_texture != nil do ext_free(material.occlusion_texture.?)
-        if material.metallic_roughness != nil {
-            if material.metallic_roughness.?.base_color_texture != nil do ext_free(material.metallic_roughness.?.base_color_texture.?)
-            if material.metallic_roughness.?.metallic_roughness_texture != nil do ext_free(material.metallic_roughness.?.metallic_roughness_texture.?)
-            ext_free(material.metallic_roughness.?)
-        }
-    }
     delete(materials)
 }
 
@@ -638,6 +613,8 @@ normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_
 
         case EXTRAS_KEY:
             res.extras = v
+
+        case: warning_unexpected_data(#procedure, k, v)
         }
     }
 
@@ -670,6 +647,8 @@ occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occl
 
         case EXTRAS_KEY:
             res.extras = v
+
+        case: warning_unexpected_data(#procedure, k, v)
         }
     }
 
@@ -708,6 +687,8 @@ pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Meta
 
         case EXTRAS_KEY:
             res.extras = v
+
+        case: warning_unexpected_data(#procedure, k, v)
         }
     }
 
@@ -742,6 +723,8 @@ meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
@@ -757,7 +740,6 @@ meshes_free :: proc(meshes: []Mesh) {
     for mesh in meshes {
         if len(mesh.weights) > 0 do delete(mesh.weights)
         mesh_primitives_free(mesh.primitives)
-        ext_free(mesh)
     }
     delete(meshes)
 }
@@ -791,6 +773,8 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
 
             case EXTRAS_KEY:
                 res[idx].extras = val
+
+            case: warning_unexpected_data(#procedure, key, val, idx)
             }
         }
 
@@ -806,7 +790,6 @@ mesh_primitives_free :: proc(primitives: []Mesh_Primitive) {
     if len(primitives) == 0 do return
     for primitive in primitives {
         if len(primitive.attributes) > 0 do delete(primitive.attributes)
-        ext_free(primitive)
     }
     delete(primitives)
 }
@@ -873,6 +856,8 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -884,7 +869,6 @@ nodes_free :: proc(nodes: []Node) {
     for node in nodes {
         if len(node.children) > 0 do delete(node.children)
         if len(node.weights) > 0 do delete(node.weights)
-        ext_free(node)
     }
     delete(nodes)
 }
@@ -914,6 +898,8 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
 
             case EXTRAS_KEY:
                 res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -923,10 +909,7 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
 
 scenes_free :: proc(scenes: []Scene) {
     if len(scenes) == 0 do return
-    for scene in scenes {
-        if len(scene.nodes) > 0 do delete(scene.nodes)
-        ext_free(scene)
-    }
+    for scene in scenes do if len(scene.nodes) > 0 do delete(scene.nodes)
     delete(scenes)
 }
 
@@ -950,6 +933,8 @@ texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Erro
 
         case EXTRAS_KEY:
             res.extras = v
+
+        case: warning_unexpected_data(#procedure, k, v)
         }
     }
 
