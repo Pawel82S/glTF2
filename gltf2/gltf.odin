@@ -78,7 +78,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
     //data.animations = animations_parse(parsed_object.(json.Object)) or_return
     data.buffers = buffers_parse(parsed_object.(json.Object), opt.parse_uris) or_return
     data.buffer_views = buffer_views_parse(parsed_object.(json.Object)) or_return
-    //data.cameras = cameras_parse(parsed_object.(json.Object)) or_return
+    data.cameras = cameras_parse(parsed_object.(json.Object)) or_return
     data.images = images_parse(parsed_object.(json.Object), opt.parse_uris) or_return
     data.materials = materials_parse(parsed_object.(json.Object)) or_return
     data.meshes = meshes_parse(parsed_object.(json.Object)) or_return
@@ -110,6 +110,7 @@ unload :: proc(data: ^Data) {
     accessors_free(data.accessors)
     buffers_free(data.buffers)
     buffer_views_free(data.buffer_views)
+    cameras_free(data.cameras)
     images_free(data.images)
     materials_free(data.materials)
     meshes_free(data.meshes)
@@ -358,6 +359,141 @@ accessors_free :: proc(accessors: []Accessor) {
 @(require_results)
 accessor_sparse_parse :: proc(object: json.Object) -> (res: Accessor_Sparse, err: Error) {
     unimplemented(#procedure)
+}
+
+/*
+    Cameras parsing
+*/
+@(require_results)
+cameras_parse :: proc(object: json.Object) -> (res: []Camera, err: Error) {
+    if CAMERAS_KEY not_in object do return
+
+    cameras_array := object[CAMERAS_KEY].(json.Array)
+    res = make([]Camera, len(cameras_array))
+
+    for camera, idx in cameras_array {
+        for k, v in camera.(json.Object) {
+            switch k {
+            case "name":
+                res[idx].name = v.(string)
+
+            case "type": // Required and not used here. Camera.type is union that can contain only:
+                        // Orthographic_Camera or Perspective_Camera struct
+            case "orthographic":
+                res[idx].type = orthographic_camera_parse(v.(json.Object)) or_return
+
+            case "perspective":
+                res[idx].type = perspective_camera_parse(v.(json.Object)) or_return
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+
+        if res[idx].type == nil {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "type" }
+        }
+    }
+
+    return res, nil
+}
+
+cameras_free :: proc(cameras: []Camera) {
+    if len(cameras) == 0 do return
+    delete(cameras)
+}
+
+@(require_results)
+orthographic_camera_parse :: proc(object: json.Object) -> (res: Orthographic_Camera, err: Error) {
+    xmag_set, ymag_set, zfar_set, znear_set: bool
+
+    for k, v in object {
+        switch k {
+        case "xmag": // Required
+            res.xmag = Number(v.(f64))
+            xmag_set = true
+
+        case "ymag": // Required
+            res.ymag = Number(v.(f64))
+            ymag_set = true
+
+        case "zfar": // Required
+            res.zfar = Number(v.(f64))
+            zfar_set = true
+
+        case "znear": // Required
+            res.znear = Number(v.(f64))
+            znear_set = true
+
+        case EXTENSIONS_KEY:
+            res.extensions = v
+
+        case EXTRAS_KEY:
+            res.extras = v
+
+        case: warning_unexpected_data(#procedure, k, v)
+        }
+    }
+
+    if !xmag_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "xmag" }
+    }
+    if !ymag_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "ymag" }
+    }
+    if !zfar_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "zfar" }
+    }
+    if !znear_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "znear" }
+    }
+
+    return res, nil
+}
+
+@(require_results)
+perspective_camera_parse :: proc(object: json.Object) -> (res: Perspective_Camera, err: Error) {
+    yfov_set, znear_set: bool
+
+    for k, v in object {
+        switch k {
+        case "aspectRatio":
+            res.aspect_ratio = Number(v.(f64))
+
+        case "yfov": // Required
+            res.yfov = Number(v.(f64))
+            yfov_set = true
+
+        case "zfar":
+            res.zfar = Number(v.(f64))
+
+        case "znear": // Required
+            res.znear = Number(v.(f64))
+            znear_set = true
+
+        case EXTENSIONS_KEY:
+            res.extensions = v
+
+        case EXTRAS_KEY:
+            res.extras = v
+
+        case: warning_unexpected_data(#procedure, k, v)
+        }
+    }
+
+    if !yfov_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "yfov" }
+    }
+    if !znear_set {
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "znear" }
+    }
+
+    return res, nil
 }
 
 /*

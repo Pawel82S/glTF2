@@ -30,6 +30,8 @@ test :: proc() {
     fmt.println()
     fmt.println(data.buffer_views)
     fmt.println()
+    fmt.println(data.cameras)
+    fmt.println()
     fmt.println(data.images)
     fmt.println()
     fmt.println(data.nodes)
