@@ -75,7 +75,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
 
     data.asset = asset_parse(parsed_object.(json.Object)) or_return
     data.accessors = accessors_parse(parsed_object.(json.Object)) or_return
-    //data.animations = animations_parse(parsed_object.(json.Object)) or_return
+    data.animations = animations_parse(parsed_object.(json.Object)) or_return
     data.buffers = buffers_parse(parsed_object.(json.Object), opt.parse_uris) or_return
     data.buffer_views = buffer_views_parse(parsed_object.(json.Object)) or_return
     data.cameras = cameras_parse(parsed_object.(json.Object)) or_return
