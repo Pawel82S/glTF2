@@ -495,7 +495,15 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
                 input_set = true
 
             case "interpolation": // Defalt Linear(0)
-                res[idx].interpolation = Interpolation_Algorithm(v.(f64))
+                switch v.(string) {
+                case "LINEAR":
+                    res[idx].interpolation = .Linear
+                case "STEP":
+                    res[idx].interpolation = .Step
+                case "CUBICSPLINE":
+                    res[idx].interpolation = .Cubic_SP_Line
+                case: return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string)}
+                }
 
             case "output": // Required
                 res[idx].output = Integer(v.(f64))
