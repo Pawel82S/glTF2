@@ -24,15 +24,15 @@
 | Materials | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material |
 | Meshes | :heavy_plus_sign: | Missing mesh primitive targets | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh |
 | Nodes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node |
-| Samplers | :x: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-sampler |
+| Samplers | :x: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-sampler |
 | Scene | :heavy_check_mark: | It's just an integer | |
 | Scenes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-scene |
-| Skins | :x: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin |
+| Skins | :x: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin |
 | Textures | :heavy_plus_sign: | Only Texture Info | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-texture |
-| Extensions | :heavy_check_mark: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extension |
+| Extensions | :heavy_check_mark: | Represented as JSON.Value | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extension |
 | Extensions Used | :heavy_check_mark: | Array of strings | |
 | Extensions Required | :heavy_check_mark: | Array of strings | |
-| Extras | :heavy_check_mark: | Details | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras |
+| Extras | :heavy_check_mark: | Represented as JSON.Value | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras |
 
 # How to use it
 1. Download [glTF2](https://github.com/Pawel82S/glTF2) package from github and put in your source folder.
