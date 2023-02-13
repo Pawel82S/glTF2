@@ -28,7 +28,7 @@
 | Scene | :heavy_check_mark: | It's just an integer | |
 | Scenes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-scene |
 | Skins | :x: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin |
-| Textures | :heavy_plus_sign: | Only Texture Info | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-texture |
+| Textures | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-texture |
 | Extensions | :heavy_check_mark: | Represented as JSON.Value | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extension |
 | Extensions Used | :heavy_check_mark: | Array of strings | |
 | Extensions Required | :heavy_check_mark: | Array of strings | |

@@ -89,7 +89,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
     }
     data.scenes = scenes_parse(parsed_object.(json.Object)) or_return
     //data.skins = skins_parse(parsed_object.(json.Object)) or_return
-    //data.textures = textures_parse(parsed_object.(json.Object)) or_return
+    data.textures = textures_parse(parsed_object.(json.Object)) or_return
     data.extensions_used = extensions_names_parse(parsed_object.(json.Object), EXTENSIONS_USED_KEY)
     data.extensions_required = extensions_names_parse(parsed_object.(json.Object), EXTENSIONS_REQUIRED_KEY)
     if extensions, ok := parsed_object.(json.Object)[EXTENSIONS_KEY]; ok {
@@ -118,6 +118,7 @@ unload :: proc(data: ^Data) {
     nodes_free(data.nodes)
     samplers_free(data.samplers)
     scenes_free(data.scenes)
+    textures_free(data.textures)
     extensions_names_free(data.extensions_required)
     extensions_names_free(data.extensions_used)
     free(data)
@@ -1269,6 +1270,44 @@ scenes_free :: proc(scenes: []Scene) {
 /*
     Textures parsing
 */
+@(require_results)
+textures_parse :: proc(object: json.Object) -> (res: []Texture, err: Error) {
+    if TEXTURES_KEY not_in object do return
+
+    textures_array := object[TEXTURES_KEY].(json.Array)
+    res = make([]Texture, len(textures_array))
+
+    for texture, idx in textures_array {
+        for k, v in texture.(json.Object) {
+            switch k {
+            case "sampler":
+            res[idx].sampler = Integer(v.(f64))
+
+            case "source":
+                res[idx].source = Integer(v.(f64))
+
+            case "name":
+                res[idx].name = v.(string)
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+    }
+
+    return res, nil
+}
+
+textures_free :: proc(textures: []Texture) {
+    if len(textures) == 0 do return
+    delete(textures)
+}
+
 @(require_results)
 texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Error) {
     index_set: bool
