@@ -88,7 +88,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
         data.scene = Integer(scene.(f64))
     }
     data.scenes = scenes_parse(parsed_object.(json.Object)) or_return
-    //data.skins = skins_parse(parsed_object.(json.Object)) or_return
+    data.skins = skins_parse(parsed_object.(json.Object)) or_return
     data.textures = textures_parse(parsed_object.(json.Object)) or_return
     data.extensions_used = extensions_names_parse(parsed_object.(json.Object), EXTENSIONS_USED_KEY)
     data.extensions_required = extensions_names_parse(parsed_object.(json.Object), EXTENSIONS_REQUIRED_KEY)
@@ -118,6 +118,7 @@ unload :: proc(data: ^Data) {
     nodes_free(data.nodes)
     samplers_free(data.samplers)
     scenes_free(data.scenes)
+    skins_free(data.skins)
     textures_free(data.textures)
     extensions_names_free(data.extensions_required)
     extensions_names_free(data.extensions_used)
@@ -1265,6 +1266,57 @@ scenes_free :: proc(scenes: []Scene) {
     if len(scenes) == 0 do return
     for scene in scenes do if len(scene.nodes) > 0 do delete(scene.nodes)
     delete(scenes)
+}
+
+/*
+    Skins parsing
+*/
+skins_parse :: proc(object: json.Object) -> (res: []Skin, err: Error) {
+    if SKINS_KEY not_in object do return
+
+    skins_array := object[SKINS_KEY].(json.Array)
+    res = make([]Skin, len(skins_array))
+
+    for skin, idx in skins_array {
+        for k, v in skin.(json.Object) {
+            switch k {
+            case "inverseBindMatrices":
+                res[idx].inverse_bind_matrices = Integer(v.(f64))
+
+            case "joints": // Required
+                res[idx].joints = make([]Integer, len(v.(json.Array)))
+                for joint, i in v.(json.Array) do res[idx].joints[i] = Integer(joint.(f64))
+
+            case "name":
+                res[idx].name = v.(string)
+
+            case "skeleton":
+                res[idx].skeleton = Integer(v.(f64))
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+
+        if len(res[idx].joints) == 0 {
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "joints" }
+        }
+    }
+
+    return res, nil
+}
+
+skins_free :: proc(skins: []Skin) {
+    if len(skins) == 0 do return
+    for skin in skins {
+        if len(skin.joints) > 0 do delete(skin.joints)
+    }
+    delete(skins)
 }
 
 /*

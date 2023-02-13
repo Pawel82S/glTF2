@@ -27,7 +27,7 @@
 | Samplers | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-sampler |
 | Scene | :heavy_check_mark: | It's just an integer | |
 | Scenes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-scene |
-| Skins | :x: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin |
+| Skins | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin |
 | Textures | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-texture |
 | Extensions | :heavy_check_mark: | Represented as JSON.Value | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extension |
 | Extensions Used | :heavy_check_mark: | Array of strings | |

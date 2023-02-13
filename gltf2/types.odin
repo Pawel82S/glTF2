@@ -453,7 +453,7 @@ Scene :: struct {
     Skin data structure
 */
 Skin :: struct {
-    joints: []Integer,
+    joints: []Integer, // Required
     inverse_bind_matrices, skeleton: Maybe(Integer),
     name: Maybe(string),
     extensions: Extensions,
