@@ -83,7 +83,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
     data.materials = materials_parse(parsed_object.(json.Object)) or_return
     data.meshes = meshes_parse(parsed_object.(json.Object)) or_return
     data.nodes = nodes_parse(parsed_object.(json.Object)) or_return
-    //data.samplers = samplers_parse(parsed_object.(json.Object)) or_return
+    data.samplers = samplers_parse(parsed_object.(json.Object)) or_return
     if scene, ok := parsed_object.(json.Object)[SCENE_KEY]; ok {
         data.scene = Integer(scene.(f64))
     }
@@ -116,6 +116,7 @@ unload :: proc(data: ^Data) {
     materials_free(data.materials)
     meshes_free(data.meshes)
     nodes_free(data.nodes)
+    samplers_free(data.samplers)
     scenes_free(data.scenes)
     extensions_names_free(data.extensions_required)
     extensions_names_free(data.extensions_used)
@@ -1174,6 +1175,55 @@ nodes_free :: proc(nodes: []Node) {
         if len(node.weights) > 0 do delete(node.weights)
     }
     delete(nodes)
+}
+
+/*
+    Samplers parsing
+*/
+@(require_results)
+samplers_parse :: proc(object: json.Object) -> (res: []Sampler, err: Error) {
+    if SAMPLERS_KEY not_in object do return
+
+    samplers_array := object[SAMPLERS_KEY].(json.Array)
+    res = make([]Sampler, len(samplers_array))
+
+    for sampler, idx in samplers_array {
+        res[idx].wrapS = .Repeat
+        res[idx].wrapT = .Repeat
+
+        for k, v in sampler.(json.Object) {
+            switch k {
+            case "magFilter":
+                res[idx].mag_filter = Magnification_Filter(v.(f64))
+
+            case "minFilter":
+                res[idx].min_filter = Minification_Filter(v.(f64))
+
+            case "wrapS": // Default Repeat(10497)
+                res[idx].wrapS = Wrap_Mode(v.(f64))
+
+            case "wrapT": // Default Repeat(10497)
+                res[idx].wrapT = Wrap_Mode(v.(f64))
+
+            case "name":
+                res[idx].name = v.(string)
+
+            case EXTENSIONS_KEY:
+                res[idx].extensions = v
+
+            case EXTRAS_KEY:
+                res[idx].extras = v
+
+            case: warning_unexpected_data(#procedure, k, v, idx)
+            }
+        }
+    }
+    return res, nil
+}
+
+samplers_free :: proc(samplers: []Sampler) {
+    if len(samplers) == 0 do return
+    delete(samplers)
 }
 
 /*

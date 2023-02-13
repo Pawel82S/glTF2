@@ -24,7 +24,7 @@
 | Materials | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material |
 | Meshes | :heavy_plus_sign: | Missing mesh primitive targets | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh |
 | Nodes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node |
-| Samplers | :x: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-sampler |
+| Samplers | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-sampler |
 | Scene | :heavy_check_mark: | It's just an integer | |
 | Scenes | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-scene |
 | Skins | :x: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin |
