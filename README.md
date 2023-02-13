@@ -14,7 +14,7 @@
 
 | Type | Status | Details | Specification URL |
 |---|---|---|---|
-| Accessors | :heavy_plus_sign: | Missing accessor sparse values | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-accessor |
+| Accessors | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-accessor |
 | Animations | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-animation |
 | Asset | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-asset |
 | Buffers | :heavy_check_mark: | | https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-buffer |
