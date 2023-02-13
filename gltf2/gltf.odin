@@ -20,10 +20,10 @@ GLTF_MIN_VERSION :: 2
 */
 @(require_results)
 load_from_file :: proc(file_name: string, parse_uris := false, allocator := context.allocator) -> (data: ^Data, err: Error) {
-    if !os.exists(file_name) do return nil, GLTF_Error{ type = .No_File, proc_name = #procedure, param = file_name }
+    if !os.exists(file_name) do return nil, GLTF_Error{ type = .No_File, proc_name = #procedure, param = { name = file_name } }
 
     file_content, ok := os.read_entire_file(file_name, allocator)
-    if !ok do return nil, GLTF_Error{ type = .Cant_Read_File, proc_name = #procedure, param = file_name }
+    if !ok do return nil, GLTF_Error{ type = .Cant_Read_File, proc_name = #procedure, param = { name = file_name } }
 
     options := Options{ parse_uris = parse_uris, delete_content = true }
     switch strings.to_lower(filepath.ext(file_name), context.temp_allocator) {
@@ -33,7 +33,7 @@ load_from_file :: proc(file_name: string, parse_uris := false, allocator := cont
         options.is_glb = true
         return parse(file_content, options, allocator)
     case:
-        return nil, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = file_name }
+        return nil, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = { name = file_name } }
     }
 }
 
@@ -106,6 +106,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
 unload :: proc(data: ^Data) {
     if data == nil do return
 
+    glb_chunks_free(data.glb_chunks)
     json.destroy_value(data.json_value)
     accessors_free(data.accessors)
     animations_free(data.animations)
@@ -184,7 +185,7 @@ warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 
     fmt.printf("WARINING: Unexpected data in proc: %v at index: %v\nKey: %v, valalue: %v\n", proc_name, idx, key, val)
 }
 
-/*get_chunk :: proc(file_content: []byte, expected_type := Chunk_Type.Other) -> (ch: GLB_Chunk, ok: bool) {
+/*glb_chunk_parse :: proc(slice: []byte, expected_type: u32) -> (res: GLB_Chunk, err: Error) {
     SIZE :: size_of(u32) * 2
     remaining_bytes := len(file_content) - int(data.content_index) - SIZE
     if remaining_bytes < 0 do return
@@ -202,12 +203,18 @@ warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 
     return ch, true
 }*/
 
+glb_chunks_free :: proc(chunks: [dynamic]GLB_Chunk) {
+    if cap(chunks) == 0 do return
+    for chunk in chunks do delete(chunk.data)
+    delete(chunks)
+}
+
 /*
     Asseet parsing
 */
 @(require_results)
 asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
-    if ASSET_KEY not_in object do return res, GLTF_Error{ type = .JSON_Missing_Section, proc_name = #procedure, param = ASSET_KEY }
+    if ASSET_KEY not_in object do return res, GLTF_Error{ type = .JSON_Missing_Section, proc_name = #procedure, param = { name = ASSET_KEY } }
 
     version_found: bool
 
@@ -221,7 +228,7 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
 
         case "version": // Required
             version, ok := strconv.parse_f64(v.(string))
-            if !ok do return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = "version" }
+            if !ok do return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = "version" } }
             res.version = Number(version)
             version_found = true
 
@@ -241,7 +248,7 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
     }
 
     if !version_found {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "version" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "version" } }
     } else if res.version > GLTF_MIN_VERSION {
         return res, GLTF_Error{ type = .Unsupported_Version, proc_name = #procedure }
     }
@@ -311,7 +318,7 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
                     type_set = true
 
                 case:
-                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string) }
+                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
                 }
 
             case "max":
@@ -341,13 +348,13 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
         }
 
         if !component_type_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "componentType" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "componentType", index = idx } }
         }
         if !count_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "count" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "count", index = idx } }
         }
         if !type_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "type" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "type", index = idx } }
         }
     }
 
@@ -386,10 +393,10 @@ accessor_sparse_parse :: proc(object: json.Object) -> (res: Accessor_Sparse, err
     }
 
     if len(res.indices) == 0 {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "indices" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "indices" } }
     }
     if len(res.values) == 0 {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "values" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "values" } }
     }
 
     return res, nil
@@ -426,10 +433,10 @@ sparse_indices_parse :: proc(array: json.Array) -> (res: []Accessor_Sparse_Indic
         }
 
         if !buffer_view_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "bufferView" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "bufferView", index = idx } }
         }
         if !component_type_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "componentType" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "componentType", index = idx } }
         }
     }
 
@@ -463,7 +470,7 @@ sparse_values_parse :: proc(array: json.Array) -> (res: []Accessor_Sparse_Values
         }
 
         if !buffer_view_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "bufferView" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "bufferView", index = idx } }
         }
     }
 
@@ -503,10 +510,10 @@ animations_parse :: proc(object: json.Object) -> (res: []Animation, err: Error) 
         }
 
         if len(res[idx].channels) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "channels" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "channels", index = idx } }
         }
         if len(res[idx].samplers) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "samplers" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "samplers", index = idx } }
         }
     }
     return res, nil
@@ -549,10 +556,10 @@ animation_channels_parse :: proc(array: json.Array) -> (res: []Animation_Channel
         }
 
         if !sampler_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "sampler" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "sampler", index = idx } }
         }
         if !target_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "target" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "target", index = idx } }
         }
     }
 
@@ -583,7 +590,7 @@ animation_channel_target_parse :: proc(object: json.Object) -> (res: Animation_C
     }
 
     if !path_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "path" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "path" } }
     }
 
     return res, nil
@@ -610,7 +617,7 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
                     res[idx].interpolation = .Step
                 case "CUBICSPLINE":
                     res[idx].interpolation = .Cubic_SP_Line
-                case: return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string)}
+                case: return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
                 }
 
             case "output": // Required
@@ -628,10 +635,10 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
         }
 
         if !input_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "input" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "input", index = idx } }
         }
         if !output_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "output" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "output", index = idx } }
         }
     }
     return res, nil
@@ -673,7 +680,7 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Buffer, e
         }
 
         if !byte_length_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param =  { name = "byteLength", index = idx } }
         }
     }
 
@@ -732,10 +739,10 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
         }
 
         if !buffer_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "buffer" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "buffer", index = idx } }
         }
         if !byte_length_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "byteLength" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "byteLength", index = idx } }
         }
     }
 
@@ -782,7 +789,7 @@ cameras_parse :: proc(object: json.Object) -> (res: []Camera, err: Error) {
         }
 
         if res[idx].type == nil {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "type" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "type", index = idx } }
         }
     }
 
@@ -827,16 +834,16 @@ orthographic_camera_parse :: proc(object: json.Object) -> (res: Orthographic_Cam
     }
 
     if !xmag_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "xmag" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "xmag" } }
     }
     if !ymag_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "ymag" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "ymag" } }
     }
     if !zfar_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "zfar" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "zfar" } }
     }
     if !znear_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "znear" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "znear" } }
     }
 
     return res, nil
@@ -873,10 +880,10 @@ perspective_camera_parse :: proc(object: json.Object) -> (res: Perspective_Camer
     }
 
     if !yfov_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "yfov" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "yfov" } }
     }
     if !znear_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "znear" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "znear" } }
     }
 
     return res, nil
@@ -905,7 +912,7 @@ images_parse :: proc(object: json.Object, parse_uri: bool) -> (res: []Image, err
                 case "image/png":
                     res[idx].type = .PNG
                 case:
-                    return res, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = v.(string) }
+                    return res, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
                 }
 
             case "name":
@@ -958,7 +965,7 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
                 case "BLEND":
                     res[idx].alpha_mode = .Blend
                 case:
-                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = v.(string) }
+                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
                 }
 
             case "alphaCutoff": // Default 0.5
@@ -1031,7 +1038,7 @@ normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_
     }
 
     if !index_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "index" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "index" } }
     }
 
     return res, nil
@@ -1065,7 +1072,7 @@ occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occl
     }
 
     if !index_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "index" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "index" } }
     }
 
     return res, nil
@@ -1141,7 +1148,7 @@ meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
         }
 
         if len(res[idx].primitives) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "primitives" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "primitives", index = idx } }
         }
     }
     return res, nil
@@ -1191,7 +1198,7 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
         }
 
         if len(res[idx].attributes) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "attributes" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "attributes", index = idx } }
         }
     }
 
@@ -1410,7 +1417,7 @@ skins_parse :: proc(object: json.Object) -> (res: []Skin, err: Error) {
         }
 
         if len(res[idx].joints) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "joints" }
+            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "joints", index = idx } }
         }
     }
 
@@ -1489,7 +1496,7 @@ texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Erro
     }
 
     if !index_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = "index" }
+        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "index" } }
     }
 
     return res, nil

@@ -38,14 +38,16 @@ GLB_Header :: struct {
     magic, version, length: u32le,
 }
 
-Chunk_Type :: enum u32 {
-    Other,
-    Bin = 0x004e4942,
-    JSON = 0x4e4f534a,
-}
+CHUNK_TYPE_BIN :: 0x004e4942
+CHUNK_TYPE_JSON :: 0x4e4f534a
+//Chunk_Type :: enum u32 {
+    //Other,
+    //Bin = 0x004e4942,
+    //JSON = 0x4e4f534a,
+//}
 
 GLB_Chunk :: struct {
-    length, type: Integer,
+    length, type: u32le,
     data: []byte,
 }
 
@@ -71,6 +73,7 @@ Data :: struct {
     extensions: Extensions,
     extras: Extras,
 
+    glb_chunks: [dynamic]GLB_Chunk,
     json_value: json.Value,
 }
 
@@ -86,7 +89,13 @@ JSON_Error :: struct {
 
 GLTF_Error :: struct {
     type: Error_Type,
-    proc_name, param: string,
+    proc_name: string,
+    param: GLTF_Param_Error,
+}
+
+GLTF_Param_Error :: struct {
+    name: string,
+    index: int,
 }
 
 Error_Type :: enum {
