@@ -1,5 +1,5 @@
 package gltf2
-// (cast(^Struct)(raw_data(bytes[from:to])))^
+
 import "core:encoding/base64"
 import "core:encoding/json"
 import "core:fmt"
@@ -12,6 +12,7 @@ import "core:strings"
 
 GLB_MAGIC :: 0x46546c67
 GLB_HEADER_SIZE :: size_of(GLB_Header)
+GLB_CHUNK_HEADER_SIZE :: size_of(GLB_Chunk_Header)
 GLTF_MIN_VERSION :: 2
 
 
@@ -53,7 +54,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
     content_index: u32
 
     if opt.is_glb {
-        header := (cast(^GLB_Header)(raw_data(file_content[:GLB_HEADER_SIZE])))^
+        header := (cast(^GLB_Header)(raw_data(file_content[:GLB_HEADER_SIZE])))
         content_index += GLB_HEADER_SIZE
 
         switch {
@@ -63,7 +64,15 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
             return data, GLTF_Error{ type = .Unsupported_Version, proc_name = #procedure }
         }
 
-        // TODO: Parse JSON chunk and other chunks
+        // GLB file format expects 1 JSON chunk right after header
+        json_header := (cast(^GLB_Chunk_Header)(raw_data(file_content[content_index:content_index + GLB_CHUNK_HEADER_SIZE])))
+        if json_header.type != CHUNK_TYPE_JSON {
+            return data, GLTF_Error{ type = .Wrong_Chunk_Type, proc_name = #procedure, param = { name = "JSON Chunk" } }
+        }
+
+        content_index += GLB_CHUNK_HEADER_SIZE
+        json_data = file_content[content_index:content_index + u32(json_header.length)]
+        content_index += u32(json_header.length)
     }
 
     json_parser := json.make_parser(json_data)
@@ -99,6 +108,16 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
         data.extras = extras
     }
 
+    // Load remaining binary chunks.
+    for buf_idx := 0; opt.is_glb && buf_idx < len(data.buffers) && int(content_index) < len(file_content); buf_idx += 1 {
+        chunk_header := (cast(^GLB_Chunk_Header)(raw_data(file_content[content_index:content_index + GLB_CHUNK_HEADER_SIZE])))
+        content_index += GLB_CHUNK_HEADER_SIZE
+
+        data.buffers[buf_idx].uri = make([]byte, chunk_header.length)
+        mem.copy(raw_data(data.buffers[buf_idx].uri.([]byte)), raw_data(file_content[content_index:]), int(chunk_header.length))
+        content_index += u32(chunk_header.length)
+    }
+
     return data, nil
 }
 
@@ -106,7 +125,6 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
 unload :: proc(data: ^Data) {
     if data == nil do return
 
-    glb_chunks_free(data.glb_chunks)
     json.destroy_value(data.json_value)
     accessors_free(data.accessors)
     animations_free(data.animations)
@@ -202,12 +220,6 @@ warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 
     data.content_index = chunk_end_index
     return ch, true
 }*/
-
-glb_chunks_free :: proc(chunks: [dynamic]GLB_Chunk) {
-    if cap(chunks) == 0 do return
-    for chunk in chunks do delete(chunk.data)
-    delete(chunks)
-}
 
 /*
     Asseet parsing

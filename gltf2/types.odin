@@ -22,8 +22,6 @@ import "core:encoding/json"
 @private EXTENSIONS_USED_KEY :: "extensionsUsed"
 @private EXTRAS_KEY :: "extras"
 
-@private JSON_Array :: json.Array
-@private JSON_Object :: json.Object
 
 Integer :: u32
 Number :: f64
@@ -40,15 +38,9 @@ GLB_Header :: struct {
 
 CHUNK_TYPE_BIN :: 0x004e4942
 CHUNK_TYPE_JSON :: 0x4e4f534a
-//Chunk_Type :: enum u32 {
-    //Other,
-    //Bin = 0x004e4942,
-    //JSON = 0x4e4f534a,
-//}
 
-GLB_Chunk :: struct {
+GLB_Chunk_Header :: struct {
     length, type: u32le,
-    data: []byte,
 }
 
 
@@ -73,7 +65,6 @@ Data :: struct {
     extensions: Extensions,
     extras: Extras,
 
-    glb_chunks: [dynamic]GLB_Chunk,
     json_value: json.Value,
 }
 
