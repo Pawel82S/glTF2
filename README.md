@@ -6,8 +6,6 @@
 5. Because it's fun.
 
 # Progress
-**Loading of binary files (.glb) is not supported yet**
-
 :heavy_check_mark: - fully implemented
 :heavy_plus_sign: - partially implemented
 :x: - not implemented
