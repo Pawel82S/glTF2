@@ -203,24 +203,6 @@ warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 
     fmt.printf("WARINING: Unexpected data in proc: %v at index: %v\nKey: %v, valalue: %v\n", proc_name, idx, key, val)
 }
 
-/*glb_chunk_parse :: proc(slice: []byte, expected_type: u32) -> (res: GLB_Chunk, err: Error) {
-    SIZE :: size_of(u32) * 2
-    remaining_bytes := len(file_content) - int(data.content_index) - SIZE
-    if remaining_bytes < 0 do return
-
-    mem.copy(&ch, raw_data(data.file_content[data.content_index:]), SIZE)
-    data.content_index += SIZE
-    defer if !ok do data.content_index -= SIZE
-
-    if ch.length > u32(remaining_bytes) do return
-    if expected_type != .Other && ch.type != u32(expected_type) do return
-
-    chunk_end_index := data.content_index + ch.length
-    ch.data = data.file_content[data.content_index:chunk_end_index]
-    data.content_index = chunk_end_index
-    return ch, true
-}*/
-
 /*
     Asseet parsing
 */

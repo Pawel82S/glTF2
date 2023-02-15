@@ -68,11 +68,6 @@ test :: proc() {
     fmt.println()
     fmt.println("====================OTHER======================")
     fmt.println("Size of Data struct:", size_of(gltf2.Data))
-
-    //data := [?]u32{ GLB_MAGIC, 2, 0 }
-    //header := (cast(^GLB_Header)(raw_data(data[:])))^
-    //mem.copy(&header, raw_data(data[:]), GLB_HEADER_SIZE)
-    //fmt.println(header)
 }
 
 main :: proc() {
