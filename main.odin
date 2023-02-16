@@ -68,6 +68,12 @@ test :: proc() {
     fmt.println()
     fmt.println("====================OTHER======================")
     fmt.println("Size of Data struct:", size_of(gltf2.Data))
+
+    fmt.println()
+    fmt.println("====================ITER=======================")
+    for it := gltf2.buf_iter_make([3]f32, &data.accessors[0], data); it.idx < it.count; it.idx += 1 {
+        fmt.printf("Index:\t%v = %v\n", it.idx, gltf2.buf_iter_elem(&it))
+    }
 }
 
 main :: proc() {
