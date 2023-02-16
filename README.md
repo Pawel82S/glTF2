@@ -50,6 +50,11 @@ main :: proc() {
 
     // do stuff with 'data'
     ...
+
+    // Iterate over buffer elements using accessor:
+    for it := gltf2.buf_iter_make([3]f32, &data.accessors[0], data); it.idx < it.count; it.idx += 1 {
+        fmt.printf("Index: %v = %v\n", it.idx, gltf2.buf_iter_elem(&it))
+    }
 }
 ```
 3. Load parts of file into memory and parse itself. It can be handy if you can't load entire file into memory.
