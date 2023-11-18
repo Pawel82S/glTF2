@@ -24,12 +24,13 @@ import "core:encoding/json"
 
 
 Integer :: u32
-Number :: f64
+Number :: f32
 Matrix4 :: matrix[4, 4]Number
 Quaternion :: quaternion256 when Number == f64 else quaternion128
 
 Options :: struct {
     is_glb, delete_content, parse_uris: bool,
+    gltf_dir: string,
 }
 
 GLB_Header :: struct {
