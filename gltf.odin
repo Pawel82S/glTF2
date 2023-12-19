@@ -20,7 +20,7 @@ GLTF_MIN_VERSION :: 2
     Main library interface procedures
 */
 @(require_results)
-load_from_file :: proc(file_name: string, parse_uris := true, allocator := context.allocator) -> (data: ^Data, err: Error) {
+load_from_file :: proc(file_name: string, allocator := context.allocator) -> (data: ^Data, err: Error) {
     if !os.exists(file_name) do return nil, GLTF_Error{ type = .No_File, proc_name = #procedure, param = { name = file_name } }
 
     file_content, ok := os.read_entire_file(file_name, allocator)
@@ -29,7 +29,7 @@ load_from_file :: proc(file_name: string, parse_uris := true, allocator := conte
     gltf_dir := filepath.dir(file_name)
     defer delete(gltf_dir)
 
-    options := Options{ parse_uris = parse_uris, delete_content = true, gltf_dir = gltf_dir }
+    options := Options{ delete_content = true, gltf_dir = gltf_dir }
     switch strings.to_lower(filepath.ext(file_name), context.temp_allocator) {
     case ".gltf":
         return parse(file_content, options, allocator)
@@ -88,10 +88,10 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
     data.asset = asset_parse(parsed_object.(json.Object)) or_return
     data.accessors = accessors_parse(parsed_object.(json.Object)) or_return
     data.animations = animations_parse(parsed_object.(json.Object)) or_return
-    data.buffers = buffers_parse(parsed_object.(json.Object), opt.parse_uris, opt.gltf_dir) or_return
+    data.buffers = buffers_parse(parsed_object.(json.Object), opt.gltf_dir) or_return
     data.buffer_views = buffer_views_parse(parsed_object.(json.Object)) or_return
     data.cameras = cameras_parse(parsed_object.(json.Object)) or_return
-    data.images = images_parse(parsed_object.(json.Object), opt.parse_uris, opt.gltf_dir) or_return
+    data.images = images_parse(parsed_object.(json.Object), opt.gltf_dir) or_return
     data.materials = materials_parse(parsed_object.(json.Object)) or_return
     data.meshes = meshes_parse(parsed_object.(json.Object)) or_return
     data.nodes = nodes_parse(parsed_object.(json.Object)) or_return
@@ -650,7 +650,7 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
     Buffers parsing
 */
 @(require_results)
-buffers_parse :: proc(object: json.Object, parse_uri: bool, gltf_dir: string) -> (res: []Buffer, err: Error) {
+buffers_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Buffer, err: Error) {
     if BUFFERS_KEY not_in object do return
 
     buffers_array := object[BUFFERS_KEY].(json.Array)
@@ -669,7 +669,7 @@ buffers_parse :: proc(object: json.Object, parse_uri: bool, gltf_dir: string) ->
                 res[idx].name = v.(string)
 
             case "uri":
-                res[idx].uri = parse_uri ? uri_parse(v.(string), gltf_dir) : Uri(v.(string))
+                res[idx].uri = uri_parse(v.(string), gltf_dir)
 
             case EXTENSIONS_KEY:
                 res[idx].extensions = v
@@ -895,7 +895,7 @@ perspective_camera_parse :: proc(object: json.Object) -> (res: Perspective_Camer
     Images parsing
 */
 @(require_results)
-images_parse :: proc(object: json.Object, parse_uri: bool, gltf_dir: string) -> (res: []Image, err: Error) {
+images_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Image, err: Error) {
     if IMAGES_KEY not_in object do return
 
     images_array := object[IMAGES_KEY].(json.Array)
@@ -921,7 +921,7 @@ images_parse :: proc(object: json.Object, parse_uri: bool, gltf_dir: string) -> 
                 res[idx].name = v.(string)
 
             case "uri":
-                res[idx].uri = parse_uri ? uri_parse(v.(string), gltf_dir) : Uri(v.(string))
+                res[idx].uri = uri_parse(v.(string), gltf_dir)
 
             case EXTENSIONS_KEY:
                 res[idx].extensions = v

@@ -35,6 +35,9 @@
 # How to use it
 1. Download [glTF2](https://github.com/Pawel82S/glTF2) package from github and put in your source folder.
 2. Load entire glTF2 file into memory (simplest way).
+3. You can change floating point precision (by default it's 32bit) to 64bit, by setting flag to Odin compiler like this:
+        -define:GLTF_DOUBLE_PRECISION=true
+
 ```odin
 import "gltf2"
 
@@ -65,8 +68,7 @@ main :: proc () {
     // Set options for gltf2 parser.
     // is_glb must be set to true if file is in binary format. Most likely it will have "*.glb" suffix. By default it's gltf or JSON file format.
     // delete_content set to true will delete bytes provided in procedure call. This is what 'load_from_file' does.
-    // parse_uris will try to parse all URI links, this will take CPU time to do so it's not default option.
-    options := gltf2.Options{ is_glb = [true/false(default)], delete_content = [true/false(default)], parse_uris = [true/false(default)] }
+    options := gltf2.Options{ is_glb = [true/false(default)], delete_content = [true/false(default)] }
 
     // Load some part of file that is valid JSON object
     data, error := gltf2.parse(bytes, options)

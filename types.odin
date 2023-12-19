@@ -22,14 +22,19 @@ import "core:encoding/json"
 @private EXTENSIONS_USED_KEY :: "extensionsUsed"
 @private EXTRAS_KEY :: "extras"
 
+/*
+Add following line when compiling to change type of `Number` from f32 to f64:
+    -define:GLTF_DOUBLE_PRECISION=true
+*/
+GLTF_DOUBLE_PRECISION :: #config(GLTF_DOUBLE_PRECISION, false)
 
 Integer :: u32
-Number :: f32
+Number :: f64 when GLTF_DOUBLE_PRECISION else f32
 Matrix4 :: matrix[4, 4]Number
-Quaternion :: quaternion256 when Number == f64 else quaternion128
+Quaternion :: quaternion256 when GLTF_DOUBLE_PRECISION else quaternion128
 
 Options :: struct {
-    is_glb, delete_content, parse_uris: bool,
+    is_glb, delete_content: bool,
     gltf_dir: string,
 }
 
