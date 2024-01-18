@@ -21,10 +21,14 @@ GLTF_MIN_VERSION :: 2
 */
 @(require_results)
 load_from_file :: proc(file_name: string, allocator := context.allocator) -> (data: ^Data, err: Error) {
-    if !os.exists(file_name) do return nil, GLTF_Error{ type = .No_File, proc_name = #procedure, param = { name = file_name } }
+    if !os.exists(file_name) {
+        return nil, GLTF_Error{ type = .No_File, proc_name = #procedure, param = { name = file_name } }
+    }
 
     file_content, ok := os.read_entire_file(file_name, allocator)
-    if !ok do return nil, GLTF_Error{ type = .Cant_Read_File, proc_name = #procedure, param = { name = file_name } }
+    if !ok {
+        return nil, GLTF_Error{ type = .Cant_Read_File, proc_name = #procedure, param = { name = file_name } }
+    }
 
     gltf_dir := filepath.dir(file_name)
     defer delete(gltf_dir)
@@ -43,7 +47,9 @@ load_from_file :: proc(file_name: string, allocator := context.allocator) -> (da
 
 @(require_results)
 parse :: proc(file_content: []byte, opt := Options{}, allocator := context.allocator) -> (data: ^Data, err: Error) {
-    defer if opt.delete_content do delete(file_content)
+    defer if opt.delete_content {
+        delete(file_content)
+    }
 
     if len(file_content) < GLB_HEADER_SIZE {
         return data, GLTF_Error{ type = .Data_Too_Short, proc_name = #procedure }
@@ -51,7 +57,9 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
 
     context.allocator = allocator
     data = new(Data)
-    defer if err != nil do unload(data)
+    defer if err != nil {
+        unload(data)
+    }
 
     json_data := file_content
     content_index: u32
@@ -61,10 +69,10 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
         content_index += GLB_HEADER_SIZE
 
         switch {
-        case header.magic != GLB_MAGIC:
-            return data, GLTF_Error{ type = .Bad_GLB_Magic, proc_name = #procedure }
-        case header.version < GLTF_MIN_VERSION:
-            return data, GLTF_Error{ type = .Unsupported_Version, proc_name = #procedure }
+            case header.magic != GLB_MAGIC:
+                return data, GLTF_Error{ type = .Bad_GLB_Magic, proc_name = #procedure }
+            case header.version < GLTF_MIN_VERSION:
+                return data, GLTF_Error{ type = .Unsupported_Version, proc_name = #procedure }
         }
 
         // GLB file format expects 1 JSON chunk right after header
@@ -126,7 +134,9 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
 
 // It is safe to pass nil here
 unload :: proc(data: ^Data) {
-    if data == nil do return
+    if data == nil {
+        return
+    }
 
     json.destroy_value(data.json_value)
     accessors_free(data.accessors)
@@ -152,49 +162,65 @@ unload :: proc(data: ^Data) {
 */
 @(require_results)
 extensions_names_parse :: proc(object: json.Object, name: string) -> (res: []string) {
-    if name not_in object do return
+    if name not_in object {
+        return
+    }
 
     name_array := object[name].(json.Array)
     res = make([]string, len(name_array))
     
-    for n, i in name_array do res[i] = n.(string)
+    for n, i in name_array {
+        res[i] = n.(string)
+    }
 
     return res
 }
 
 extensions_names_free :: proc(names: []string) {
-    if len(names) == 0 do return
+    if len(names) == 0 {
+        return
+    }
     delete(names)
 }
 
 @(require_results)
 uri_parse :: proc(uri: Uri, gltf_dir: string) -> Uri {
-    if uri == nil do return uri
-    if _, ok := uri.([]byte); ok do return uri
+    if uri == nil {
+        return uri
+    }
+    if _, ok := uri.([]byte); ok {
+        return uri
+    }
 
     str_data := uri.(string)
     type_idx := strings.index_rune(str_data, ':')
     if type_idx == -1 {
         // Check if this is possible file and if so load it
         bytes, ok := os.read_entire_file(fmt.tprintf("%s/%s", gltf_dir, str_data))
-        if !ok do return uri
+        if !ok {
+            return uri
+        }
         return cast([]byte)bytes
     }
 
     type := str_data[:type_idx]
     switch type {
-    case "data":
-        encoding_start_idx := strings.index_rune(str_data, ';') + 1
-        if encoding_start_idx == 0 do return uri
-        encoding_end_idx := strings.index_rune(str_data, ',')
-        if encoding_end_idx == -1 do return uri
+        case "data":
+            encoding_start_idx := strings.index_rune(str_data, ';') + 1
+            if encoding_start_idx == 0 {
+                return uri
+            }
+            encoding_end_idx := strings.index_rune(str_data, ',')
+            if encoding_end_idx == -1 {
+                return uri
+            }
 
-        encoding := str_data[encoding_start_idx:encoding_end_idx]
+            encoding := str_data[encoding_start_idx:encoding_end_idx]
 
-        switch encoding {
-        case "base64":
-            return base64.decode(str_data[encoding_end_idx+1:])
-        }
+            switch encoding {
+                case "base64":
+                    return base64.decode(str_data[encoding_end_idx+1:])
+            }
     }
 
     return uri
@@ -216,36 +242,42 @@ warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 
 */
 @(require_results)
 asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
-    if ASSET_KEY not_in object do return res, GLTF_Error{ type = .JSON_Missing_Section, proc_name = #procedure, param = { name = ASSET_KEY } }
+    if ASSET_KEY not_in object {
+        return res, GLTF_Error{ type = .JSON_Missing_Section, proc_name = #procedure, param = { name = ASSET_KEY } }
+    }
 
     version_found: bool
 
     for k, v in object[ASSET_KEY].(json.Object) {
         switch k {
-        case "copyright":
-            res.copyright = v.(string)
+            case "copyright":
+                res.copyright = v.(string)
 
-        case "generator":
-            res.generator = v.(string)
+            case "generator":
+                res.generator = v.(string)
 
-        case "version": // Required
-            version, ok := strconv.parse_f64(v.(string))
-            if !ok do return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = "version" } }
-            res.version = Number(version)
-            version_found = true
+            case "version": // Required
+                version, ok := strconv.parse_f64(v.(string))
+                if !ok {
+                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = "version" } }
+                }
+                res.version = Number(version)
+                version_found = true
 
-        case "minVersion":
-            version, ok := strconv.parse_f64(v.(string))
-            if !ok do continue
-            res.min_version = Number(version)
+            case "minVersion":
+                version, ok := strconv.parse_f64(v.(string))
+                if !ok {
+                    continue
+                }
+                res.min_version = Number(version)
 
-        case EXTENSIONS_KEY:
-            res.extensions = v
+            case EXTENSIONS_KEY:
+                res.extensions = v
 
-        case EXTRAS_KEY:
-            res.extras = v
+            case EXTRAS_KEY:
+                res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+            case: warning_unexpected_data(#procedure, k, v)
         }
     }
 
@@ -262,7 +294,9 @@ asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
 */
 @(require_results)
 accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
-    if ACCESSORS_KEY not_in object do return
+    if ACCESSORS_KEY not_in object {
+        return
+    }
 
     accessor_array := object[ACCESSORS_KEY].(json.Array)
     res = make([]Accessor, len(accessor_array))
@@ -270,7 +304,7 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
     for access, idx in accessor_array {
         component_type_set, count_set, type_set: bool
 
-        for k, v in access.(json.Object){
+        for k, v in access.(json.Object) {
             switch k {
             case "bufferView":
                 res[idx].buffer_view = Integer(v.(f64))
@@ -325,12 +359,16 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
 
             case "max":
                 max: [16]Number
-                for num, i in v.(json.Array) do max[i] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    max[i] = Number(num.(f64))
+                }
                 res[idx].max = max
 
             case "min":
                 min: [16]Number
-                for num, i in v.(json.Array) do min[i] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    min[i] = Number(num.(f64))
+                }
                 res[idx].min = min
 
             case "sparse":
@@ -364,11 +402,19 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
 }
 
 accessors_free :: proc(accessors: []Accessor) {
-    if len(accessors) == 0 do return
+    if len(accessors) == 0 {
+        return
+    }
     for accessor in accessors {
-        if accessor.sparse == nil do continue
-        if len(accessor.sparse.?.indices) > 0 do delete(accessor.sparse.?.indices)
-        if len(accessor.sparse.?.values) > 0 do delete(accessor.sparse.?.values)
+        if accessor.sparse == nil {
+            continue
+        }
+        if len(accessor.sparse.?.indices) > 0 {
+            delete(accessor.sparse.?.indices)
+        }
+        if len(accessor.sparse.?.values) > 0 {
+            delete(accessor.sparse.?.values)
+        }
     }
     delete(accessors)
 }
@@ -484,7 +530,9 @@ sparse_values_parse :: proc(array: json.Array) -> (res: []Accessor_Sparse_Values
 */
 @(require_results)
 animations_parse :: proc(object: json.Object) -> (res: []Animation, err: Error) {
-    if ANIMATIONS_KEY not_in object do return
+    if ANIMATIONS_KEY not_in object {
+        return
+    }
 
     animations_array := object[ANIMATIONS_KEY].(json.Array)
     res = make([]Animation, len(animations_array))
@@ -522,10 +570,16 @@ animations_parse :: proc(object: json.Object) -> (res: []Animation, err: Error) 
 }
 
 animations_free :: proc(animations: []Animation) {
-    if len(animations) == 0 do return
+    if len(animations) == 0 {
+        return
+    }
     for animation in animations {
-        if len(animation.channels) > 0 do delete(animation.channels)
-        if len(animation.samplers) > 0 do delete(animation.samplers)
+        if len(animation.channels) > 0 {
+            delete(animation.channels)
+        }
+        if len(animation.samplers) > 0 {
+            delete(animation.samplers)
+        }
     }
     delete(animations)
 }
@@ -651,7 +705,9 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
 */
 @(require_results)
 buffers_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Buffer, err: Error) {
-    if BUFFERS_KEY not_in object do return
+    if BUFFERS_KEY not_in object {
+        return
+    }
 
     buffers_array := object[BUFFERS_KEY].(json.Array)
     res = make([]Buffer, len(buffers_array))
@@ -690,8 +746,12 @@ buffers_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Buffer, 
 }
 
 buffers_free :: proc(buffers: []Buffer) {
-    if len(buffers) == 0 do return
-    for buffer in buffers do uri_free(buffer.uri)
+    if len(buffers) == 0 {
+        return
+    }
+    for buffer in buffers {
+        uri_free(buffer.uri)
+    }
     delete(buffers)
 }
 
@@ -700,7 +760,9 @@ buffers_free :: proc(buffers: []Buffer) {
 */
 @(require_results)
 buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Error) {
-    if BUFFER_VIEWS_KEY not_in object do return
+    if BUFFER_VIEWS_KEY not_in object {
+        return
+    }
 
     views_array := object[BUFFER_VIEWS_KEY].(json.Array)
     res = make([]Buffer_View, len(views_array))
@@ -752,7 +814,9 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
 }
 
 buffer_views_free :: proc(views: []Buffer_View) {
-    if len(views) == 0 do return
+    if len(views) == 0 {
+        return
+    }
     delete(views)
 }
 
@@ -761,7 +825,9 @@ buffer_views_free :: proc(views: []Buffer_View) {
 */
 @(require_results)
 cameras_parse :: proc(object: json.Object) -> (res: []Camera, err: Error) {
-    if CAMERAS_KEY not_in object do return
+    if CAMERAS_KEY not_in object {
+        return
+    }
 
     cameras_array := object[CAMERAS_KEY].(json.Array)
     res = make([]Camera, len(cameras_array))
@@ -799,7 +865,9 @@ cameras_parse :: proc(object: json.Object) -> (res: []Camera, err: Error) {
 }
 
 cameras_free :: proc(cameras: []Camera) {
-    if len(cameras) == 0 do return
+    if len(cameras) == 0 {
+        return
+    }
     delete(cameras)
 }
 
@@ -896,7 +964,9 @@ perspective_camera_parse :: proc(object: json.Object) -> (res: Perspective_Camer
 */
 @(require_results)
 images_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Image, err: Error) {
-    if IMAGES_KEY not_in object do return
+    if IMAGES_KEY not_in object {
+        return
+    }
 
     images_array := object[IMAGES_KEY].(json.Array)
     res = make([]Image, len(images_array))
@@ -938,8 +1008,12 @@ images_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Image, er
 }
 
 images_free :: proc(images: []Image) {
-    if len(images) == 0 do return
-    for image in images do uri_free(image.uri)
+    if len(images) == 0 {
+        return
+    }
+    for image in images {
+        uri_free(image.uri)
+    }
     delete(images)
 }
 
@@ -948,7 +1022,9 @@ images_free :: proc(images: []Image) {
 */
 @(require_results)
 materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
-    if MATERIALS_KEY not_in object do return
+    if MATERIALS_KEY not_in object {
+        return
+    }
 
     materials_array := object[MATERIALS_KEY].(json.Array)
     res = make([]Material, len(materials_array))
@@ -977,7 +1053,9 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
                 res[idx].double_sided = v.(bool)
 
             case "emissiveFactor": // Default [0, 0, 0]
-                for num, i in v.(json.Array) do res[idx].emissive_factor[i] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    res[idx].emissive_factor[i] = Number(num.(f64))
+                }
 
             case "emissiveTexture":
                 res[idx].emissive_texture = texture_info_parse(v.(json.Object)) or_return
@@ -1008,7 +1086,9 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
 }
 
 materials_free :: proc(materials: []Material) {
-    if len(materials) == 0 do return
+    if len(materials) == 0 {
+        return
+    }
     delete(materials)
 }
 
@@ -1089,7 +1169,9 @@ pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Meta
     for k, v in object {
         switch k {
         case "baseColorFactor": // Default [ 1, 1, 1, 1 ]
-            for num, i in v.(json.Array) do res.base_color_factor[i] = Number(num.(f64))
+            for num, i in v.(json.Array) {
+                res.base_color_factor[i] = Number(num.(f64))
+            }
 
         case "baseColorTexture":
             res.base_color_texture = texture_info_parse(v.(json.Object)) or_return
@@ -1121,7 +1203,9 @@ pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Meta
 */
 @(require_results)
 meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
-    if MESHES_KEY not_in object do return
+    if MESHES_KEY not_in object {
+        return
+    }
 
     meshes_array := object[MESHES_KEY].(json.Array)
     res = make([]Mesh, len(meshes_array))
@@ -1137,7 +1221,9 @@ meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
 
             case "weights":
                 res[idx].weights = make([]Number, len(v.(json.Array)))
-                for num, i in v.(json.Array) do res[idx].weights[i] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    res[idx].weights[i] = Number(num.(f64))
+                }
 
             case EXTENSIONS_KEY:
                 res[idx].extras = v
@@ -1157,9 +1243,13 @@ meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
 }
 
 meshes_free :: proc(meshes: []Mesh) {
-    if len(meshes) == 0 do return
+    if len(meshes) == 0 {
+        return
+    }
     for mesh in meshes {
-        if len(mesh.weights) > 0 do delete(mesh.weights)
+        if len(mesh.weights) > 0 {
+            delete(mesh.weights)
+        }
         mesh_primitives_free(mesh.primitives)
     }
     delete(meshes)
@@ -1175,7 +1265,9 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
         for key, val in primitive.(json.Object) {
             switch key {
             case "attributes": // Required
-                for k, v in val.(json.Object) do res[idx].attributes[k] = Integer(v.(f64))
+                for k, v in val.(json.Object) {
+                    res[idx].attributes[k] = Integer(v.(f64))
+                }
 
             case "indices":
                 res[idx].indices = Integer(val.(f64))
@@ -1208,9 +1300,13 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
 }
 
 mesh_primitives_free :: proc(primitives: []Mesh_Primitive) {
-    if len(primitives) == 0 do return
+    if len(primitives) == 0 {
+        return
+    }
     for primitive in primitives {
-        if len(primitive.attributes) > 0 do delete(primitive.attributes)
+        if len(primitive.attributes) > 0 {
+            delete(primitive.attributes)
+        }
     }
     delete(primitives)
 }
@@ -1225,7 +1321,9 @@ mesh_targets_parse :: proc(object: json.Object) -> (res: []Mesh_Target, err: Err
 */
 @(require_results)
 nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
-    if NODES_KEY not_in object do return
+    if NODES_KEY not_in object {
+        return
+    }
 
     nodes_array := object[NODES_KEY].(json.Array)
     res = make([]Node, len(nodes_array))
@@ -1242,11 +1340,15 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
 
             case "children":
                 res[idx].children = make([]Integer, len(v.(json.Array)))
-                for child, i in v.(json.Array) do res[idx].children[i] = Integer(child.(f64))
+                for child, i in v.(json.Array) {
+                    res[idx].children[i] = Integer(child.(f64))
+                }
 
             case "matrix": // Default identity matrix
                 // Matrices are stored in column-major order. Odin matrices are indexed like this [row, col]
-                for num, i in v.(json.Array) do res[idx].mat[i % 4, i / 4] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    res[idx].mat[i % 4, i / 4] = Number(num.(f64))                    
+                }
 
             case "mesh":
                 res[idx].mesh = Integer(v.(f64))
@@ -1255,22 +1357,30 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
                 res[idx].name = v.(string)
 
             case "scale": // Default [1, 1, 1]
-                for num, i in v.(json.Array) do res[idx].scale[i] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    res[idx].scale[i] = Number(num.(f64))
+                }
 
             case "skin":
                 res[idx].skin = Integer(v.(f64))
 
             case "rotation": // Default [0, 0, 0, 1]
                 rotation: [4]Number
-                for num, i in v.(json.Array) do rotation[i] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    rotation[i] = Number(num.(f64))
+                }
                 mem.copy(&res[idx].rotation, &rotation, size_of(Quaternion))
 
             case "translation": // Defalt [0, 0, 0]
-                for num, i in v.(json.Array) do res[idx].translation[i] = Number(num.(f64))
+                for num, i in v.(json.Array) {
+                    res[idx].translation[i] = Number(num.(f64))
+                }
 
             case "weights":
                 res[idx].weights = make([]Number, len(v.(json.Array)))
-                for weight, i in v.(json.Array) do res[idx].weights[i] = Number(weight.(f64))
+                for weight, i in v.(json.Array) {
+                    res[idx].weights[i] = Number(weight.(f64))
+                }
 
             case EXTENSIONS_KEY:
                 res[idx].extensions = v
@@ -1286,10 +1396,16 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
 }
 
 nodes_free :: proc(nodes: []Node) {
-    if len(nodes) == 0 do return
+    if len(nodes) == 0 {
+        return
+    }
     for node in nodes {
-        if len(node.children) > 0 do delete(node.children)
-        if len(node.weights) > 0 do delete(node.weights)
+        if len(node.children) > 0 {
+            delete(node.children)
+        }
+        if len(node.weights) > 0 {
+            delete(node.weights)
+        }
     }
     delete(nodes)
 }
@@ -1299,7 +1415,9 @@ nodes_free :: proc(nodes: []Node) {
 */
 @(require_results)
 samplers_parse :: proc(object: json.Object) -> (res: []Sampler, err: Error) {
-    if SAMPLERS_KEY not_in object do return
+    if SAMPLERS_KEY not_in object {
+        return
+    }
 
     samplers_array := object[SAMPLERS_KEY].(json.Array)
     res = make([]Sampler, len(samplers_array))
@@ -1339,7 +1457,9 @@ samplers_parse :: proc(object: json.Object) -> (res: []Sampler, err: Error) {
 }
 
 samplers_free :: proc(samplers: []Sampler) {
-    if len(samplers) == 0 do return
+    if len(samplers) == 0 {
+        return
+    }
     delete(samplers)
 }
 
@@ -1348,7 +1468,9 @@ samplers_free :: proc(samplers: []Sampler) {
 */
 @(require_results)
 scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
-    if SCENES_KEY not_in object do return
+    if SCENES_KEY not_in object {
+        return
+    }
 
     scenes_array := object[SCENES_KEY].(json.Array)
     res = make([]Scene, len(scenes_array))
@@ -1358,7 +1480,9 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
             switch k {
             case "nodes":
                 res[idx].nodes = make([]Integer, len(v.(json.Array)))
-                for node, i in v.(json.Array) do res[idx].nodes[i] = Integer(node.(f64))
+                for node, i in v.(json.Array) {
+                    res[idx].nodes[i] = Integer(node.(f64))
+                }
 
             case "name":
                 res[idx].name = v.(string)
@@ -1378,8 +1502,14 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
 }
 
 scenes_free :: proc(scenes: []Scene) {
-    if len(scenes) == 0 do return
-    for scene in scenes do if len(scene.nodes) > 0 do delete(scene.nodes)
+    if len(scenes) == 0 {
+        return
+    }
+    for scene in scenes {
+        if len(scene.nodes) > 0 {
+            delete(scene.nodes)
+        }
+    }
     delete(scenes)
 }
 
@@ -1387,7 +1517,9 @@ scenes_free :: proc(scenes: []Scene) {
     Skins parsing
 */
 skins_parse :: proc(object: json.Object) -> (res: []Skin, err: Error) {
-    if SKINS_KEY not_in object do return
+    if SKINS_KEY not_in object {
+        return
+    }
 
     skins_array := object[SKINS_KEY].(json.Array)
     res = make([]Skin, len(skins_array))
@@ -1400,7 +1532,9 @@ skins_parse :: proc(object: json.Object) -> (res: []Skin, err: Error) {
 
             case "joints": // Required
                 res[idx].joints = make([]Integer, len(v.(json.Array)))
-                for joint, i in v.(json.Array) do res[idx].joints[i] = Integer(joint.(f64))
+                for joint, i in v.(json.Array) {
+                    res[idx].joints[i] = Integer(joint.(f64))
+                }
 
             case "name":
                 res[idx].name = v.(string)
@@ -1427,9 +1561,13 @@ skins_parse :: proc(object: json.Object) -> (res: []Skin, err: Error) {
 }
 
 skins_free :: proc(skins: []Skin) {
-    if len(skins) == 0 do return
+    if len(skins) == 0 {
+        return
+    }
     for skin in skins {
-        if len(skin.joints) > 0 do delete(skin.joints)
+        if len(skin.joints) > 0 {
+            delete(skin.joints)
+        }
     }
     delete(skins)
 }
@@ -1439,7 +1577,9 @@ skins_free :: proc(skins: []Skin) {
 */
 @(require_results)
 textures_parse :: proc(object: json.Object) -> (res: []Texture, err: Error) {
-    if TEXTURES_KEY not_in object do return
+    if TEXTURES_KEY not_in object {
+        return
+    }
 
     textures_array := object[TEXTURES_KEY].(json.Array)
     res = make([]Texture, len(textures_array))
@@ -1471,7 +1611,9 @@ textures_parse :: proc(object: json.Object) -> (res: []Texture, err: Error) {
 }
 
 textures_free :: proc(textures: []Texture) {
-    if len(textures) == 0 do return
+    if len(textures) == 0 {
+        return
+    }
     delete(textures)
 }
 
