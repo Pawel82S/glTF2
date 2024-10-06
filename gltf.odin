@@ -22,18 +22,21 @@ GLTF_MIN_VERSION :: 2
 @(require_results)
 load_from_file :: proc(file_name: string, allocator := context.allocator) -> (data: ^Data, err: Error) {
     if !os.exists(file_name) {
-        return nil, GLTF_Error{ type = .No_File, proc_name = #procedure, param = { name = file_name } }
+        return nil, GLTF_Error{type = .No_File, proc_name = #procedure, param = {name = file_name}}
     }
 
     file_content, ok := os.read_entire_file(file_name, allocator)
     if !ok {
-        return nil, GLTF_Error{ type = .Cant_Read_File, proc_name = #procedure, param = { name = file_name } }
+        return nil, GLTF_Error{type = .Cant_Read_File, proc_name = #procedure, param = {name = file_name}}
     }
 
     gltf_dir := filepath.dir(file_name)
     defer delete(gltf_dir)
 
-    options := Options{ delete_content = true, gltf_dir = gltf_dir }
+    options := Options {
+        delete_content = true,
+        gltf_dir       = gltf_dir,
+    }
     switch strings.to_lower(filepath.ext(file_name), context.temp_allocator) {
     case ".gltf":
         return parse(file_content, options, allocator)
@@ -41,7 +44,7 @@ load_from_file :: proc(file_name: string, allocator := context.allocator) -> (da
         options.is_glb = true
         return parse(file_content, options, allocator)
     case:
-        return nil, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = { name = file_name } }
+        return nil, GLTF_Error{type = .Unknown_File_Type, proc_name = #procedure, param = {name = file_name}}
     }
 }
 
@@ -52,7 +55,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
     }
 
     if len(file_content) < GLB_HEADER_SIZE {
-        return data, GLTF_Error{ type = .Data_Too_Short, proc_name = #procedure }
+        return data, GLTF_Error{type = .Data_Too_Short, proc_name = #procedure}
     }
 
     context.allocator = allocator
@@ -69,16 +72,16 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
         content_index += GLB_HEADER_SIZE
 
         switch {
-            case header.magic != GLB_MAGIC:
-                return data, GLTF_Error{ type = .Bad_GLB_Magic, proc_name = #procedure }
-            case header.version < GLTF_MIN_VERSION:
-                return data, GLTF_Error{ type = .Unsupported_Version, proc_name = #procedure }
+        case header.magic != GLB_MAGIC:
+            return data, GLTF_Error{type = .Bad_GLB_Magic, proc_name = #procedure}
+        case header.version < GLTF_MIN_VERSION:
+            return data, GLTF_Error{type = .Unsupported_Version, proc_name = #procedure}
         }
 
         // GLB file format expects 1 JSON chunk right after header
         json_header := (cast(^GLB_Chunk_Header)(raw_data(file_content[content_index:content_index + GLB_CHUNK_HEADER_SIZE])))
         if json_header.type != CHUNK_TYPE_JSON {
-            return data, GLTF_Error{ type = .Wrong_Chunk_Type, proc_name = #procedure, param = { name = "JSON Chunk" } }
+            return data, GLTF_Error{type = .Wrong_Chunk_Type, proc_name = #procedure, param = {name = "JSON Chunk"}}
         }
 
         content_index += GLB_CHUNK_HEADER_SIZE
@@ -90,7 +93,7 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
     parsed_object, json_err := json.parse_object(&json_parser)
     data.json_value = parsed_object
     if json_err != .None && json_err != .EOF {
-        return data, JSON_Error{ type = json_err, parser = json_parser }
+        return data, JSON_Error{type = json_err, parser = json_parser}
     }
 
     data.asset = asset_parse(parsed_object.(json.Object)) or_return
@@ -168,7 +171,7 @@ extensions_names_parse :: proc(object: json.Object, name: string) -> (res: []str
 
     name_array := object[name].(json.Array)
     res = make([]string, len(name_array))
-    
+
     for n, i in name_array {
         res[i] = n.(string)
     }
@@ -205,22 +208,22 @@ uri_parse :: proc(uri: Uri, gltf_dir: string) -> Uri {
 
     type := str_data[:type_idx]
     switch type {
-        case "data":
-            encoding_start_idx := strings.index_rune(str_data, ';') + 1
-            if encoding_start_idx == 0 {
-                return uri
-            }
-            encoding_end_idx := strings.index_rune(str_data, ',')
-            if encoding_end_idx == -1 {
-                return uri
-            }
+    case "data":
+        encoding_start_idx := strings.index_rune(str_data, ';') + 1
+        if encoding_start_idx == 0 {
+            return uri
+        }
+        encoding_end_idx := strings.index_rune(str_data, ',')
+        if encoding_end_idx == -1 {
+            return uri
+        }
 
-            encoding := str_data[encoding_start_idx:encoding_end_idx]
+        encoding := str_data[encoding_start_idx:encoding_end_idx]
 
-            switch encoding {
-                case "base64":
-                    return base64.decode(str_data[encoding_end_idx+1:])
-            }
+        switch encoding {
+        case "base64":
+            return base64.decode(str_data[encoding_end_idx + 1:])
+        }
     }
 
     return uri
@@ -243,48 +246,50 @@ warning_unexpected_data :: proc(proc_name, key: string, val: json.Value, idx := 
 @(require_results)
 asset_parse :: proc(object: json.Object) -> (res: Asset, err: Error) {
     if ASSET_KEY not_in object {
-        return res, GLTF_Error{ type = .JSON_Missing_Section, proc_name = #procedure, param = { name = ASSET_KEY } }
+        return res, GLTF_Error{type = .JSON_Missing_Section, proc_name = #procedure, param = {name = ASSET_KEY}}
     }
 
     version_found: bool
 
     for k, v in object[ASSET_KEY].(json.Object) {
         switch k {
-            case "copyright":
-                res.copyright = v.(string)
+        case "copyright":
+            res.copyright = v.(string)
 
-            case "generator":
-                res.generator = v.(string)
+        case "generator":
+            res.generator = v.(string)
 
-            case "version": // Required
-                version, ok := strconv.parse_f64(v.(string))
-                if !ok {
-                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = "version" } }
-                }
-                res.version = Number(version)
-                version_found = true
+        case "version":
+            // Required
+            version, ok := strconv.parse_f64(v.(string))
+            if !ok {
+                return res, GLTF_Error{type = .Invalid_Type, proc_name = #procedure, param = {name = "version"}}
+            }
+            res.version = Number(version)
+            version_found = true
 
-            case "minVersion":
-                version, ok := strconv.parse_f64(v.(string))
-                if !ok {
-                    continue
-                }
-                res.min_version = Number(version)
+        case "minVersion":
+            version, ok := strconv.parse_f64(v.(string))
+            if !ok {
+                continue
+            }
+            res.min_version = Number(version)
 
-            case EXTENSIONS_KEY:
-                res.extensions = v
+        case EXTENSIONS_KEY:
+            res.extensions = v
 
-            case EXTRAS_KEY:
-                res.extras = v
+        case EXTRAS_KEY:
+            res.extras = v
 
-            case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if !version_found {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "version" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "version"}}
     } else if res.version > GLTF_MIN_VERSION {
-        return res, GLTF_Error{ type = .Unsupported_Version, proc_name = #procedure }
+        return res, GLTF_Error{type = .Unsupported_Version, proc_name = #procedure}
     }
     return res, nil
 }
@@ -312,18 +317,21 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
             case "byteOffset":
                 res[idx].byte_offset = Integer(v.(f64))
 
-            case "componentType": // Required
+            case "componentType":
+                // Required
                 res[idx].component_type = Component_Type(v.(f64))
                 component_type_set = true
 
             case "normalized":
                 res[idx].normalized = v.(bool)
 
-            case "count": // Required
+            case "count":
+                // Required
                 res[idx].count = Integer(v.(f64))
                 count_set = true
 
-            case "type": // Required
+            case "type":
+                // Required
                 switch v.(string) {
                 case "SCALAR":
                     res[idx].type = .Scalar
@@ -354,7 +362,8 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
                     type_set = true
 
                 case:
-                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
+                    return res,
+                        GLTF_Error{type = .Invalid_Type, proc_name = #procedure, param = {name = v.(string), index = idx}}
                 }
 
             case "max":
@@ -383,18 +392,26 @@ accessors_parse :: proc(object: json.Object) -> (res: []Accessor, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if !component_type_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "componentType", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "componentType", index = idx},
+                }
         }
         if !count_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "count", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "count", index = idx}}
         }
         if !type_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "type", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "type", index = idx}}
         }
     }
 
@@ -424,10 +441,12 @@ accessor_sparse_parse :: proc(object: json.Object) -> (res: Accessor_Sparse, err
     for k, v in object {
         switch k {
         case "count": // Not used by this implementation
-        case "indices": // Required
+        case "indices":
+            // Required
             res.indices = sparse_indices_parse(v.(json.Array)) or_return
 
-        case "values": // Required
+        case "values":
+            // Required
             res.values = sparse_values_parse(v.(json.Array)) or_return
 
         case EXTENSIONS_KEY:
@@ -436,15 +455,16 @@ accessor_sparse_parse :: proc(object: json.Object) -> (res: Accessor_Sparse, err
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if len(res.indices) == 0 {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "indices" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "indices"}}
     }
     if len(res.values) == 0 {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "values" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "values"}}
     }
 
     return res, nil
@@ -459,14 +479,17 @@ sparse_indices_parse :: proc(array: json.Array) -> (res: []Accessor_Sparse_Indic
 
         for k, v in index.(json.Object) {
             switch k {
-            case "bufferView": // Required
+            case "bufferView":
+                // Required
                 res[idx].buffer_view = Integer(v.(f64))
                 buffer_view_set = true
 
-            case "byteOffset": // Default 0
+            case "byteOffset":
+                // Default 0
                 res[idx].byte_offset = Integer(v.(f64))
 
-            case "componentType": // Required
+            case "componentType":
+                // Required
                 res[idx].component_type = Component_Type(v.(f64))
                 component_type_set = true
 
@@ -476,15 +499,26 @@ sparse_indices_parse :: proc(array: json.Array) -> (res: []Accessor_Sparse_Indic
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if !buffer_view_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "bufferView", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "bufferView", index = idx},
+                }
         }
         if !component_type_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "componentType", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "componentType", index = idx},
+                }
         }
     }
 
@@ -500,11 +534,13 @@ sparse_values_parse :: proc(array: json.Array) -> (res: []Accessor_Sparse_Values
 
         for k, v in value.(json.Object) {
             switch k {
-            case "bufferView": // Required
+            case "bufferView":
+                // Required
                 res[idx].buffer_view = Integer(v.(f64))
                 buffer_view_set = true
 
-            case "byteOffset": // Defalt 0
+            case "byteOffset":
+                // Defalt 0
                 res[idx].byte_offset = Integer(v.(f64))
 
             case EXTENSIONS_KEY:
@@ -513,12 +549,18 @@ sparse_values_parse :: proc(array: json.Array) -> (res: []Accessor_Sparse_Values
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if !buffer_view_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "bufferView", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "bufferView", index = idx},
+                }
         }
     }
 
@@ -540,10 +582,12 @@ animations_parse :: proc(object: json.Object) -> (res: []Animation, err: Error) 
     for animation, idx in animations_array {
         for k, v in animation.(json.Object) {
             switch k {
-            case "channels": // Required
+            case "channels":
+                // Required
                 res[idx].channels = animation_channels_parse(v.(json.Array)) or_return
 
-            case "samplers": // Required
+            case "samplers":
+                // Required
                 res[idx].samplers = animation_samplers_parse(v.(json.Array)) or_return
 
             case "name":
@@ -555,15 +599,18 @@ animations_parse :: proc(object: json.Object) -> (res: []Animation, err: Error) 
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if len(res[idx].channels) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "channels", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "channels", index = idx}}
         }
         if len(res[idx].samplers) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "samplers", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "samplers", index = idx}}
         }
     }
     return res, nil
@@ -593,11 +640,13 @@ animation_channels_parse :: proc(array: json.Array) -> (res: []Animation_Channel
 
         for k, v in channel.(json.Object) {
             switch k {
-            case "sampler": // Required
+            case "sampler":
+                // Required
                 res[idx].sampler = Integer(v.(f64))
                 sampler_set = true
 
-            case "target": // Required
+            case "target":
+                // Required
                 res[idx].target = animation_channel_target_parse(v.(json.Object)) or_return
                 target_set = true
 
@@ -607,15 +656,18 @@ animation_channels_parse :: proc(array: json.Array) -> (res: []Animation_Channel
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if !sampler_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "sampler", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "sampler", index = idx}}
         }
         if !target_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "target", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "target", index = idx}}
         }
     }
 
@@ -631,9 +683,23 @@ animation_channel_target_parse :: proc(object: json.Object) -> (res: Animation_C
         case "node":
             res.node = Integer(v.(f64))
 
-        case "path": // Required
-            res.path = v.(string)
-            path_set = true
+        case "path":
+            // Required
+            if path, ok := v.(string); ok {
+                path_set = true
+                switch path {
+                case "translation":
+                    res.path = .Translation
+                case "rotation":
+                    res.path = .Rotation
+                case "scale":
+                    res.path = .Scale
+                case "weights":
+                    res.path = .Weights
+                case:
+                    path_set = false
+                }
+            }
 
         case EXTENSIONS_KEY:
             res.extensions = v
@@ -641,12 +707,13 @@ animation_channel_target_parse :: proc(object: json.Object) -> (res: Animation_C
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if !path_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "path" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "path"}}
     }
 
     return res, nil
@@ -661,22 +728,27 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
 
         for k, v in sampler.(json.Object) {
             switch k {
-            case "input": // Required
+            case "input":
+                // Required
                 res[idx].input = Integer(v.(f64))
                 input_set = true
 
-            case "interpolation": // Defalt Linear(0)
+            case "interpolation":
+                // Defalt Linear(0)
                 switch v.(string) {
                 case "LINEAR":
                     res[idx].interpolation = .Linear
                 case "STEP":
                     res[idx].interpolation = .Step
                 case "CUBICSPLINE":
-                    res[idx].interpolation = .Cubic_SP_Line
-                case: return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
+                    res[idx].interpolation = .Cubic_Spline
+                case:
+                    return res,
+                        GLTF_Error{type = .Invalid_Type, proc_name = #procedure, param = {name = v.(string), index = idx}}
                 }
 
-            case "output": // Required
+            case "output":
+                // Required
                 res[idx].output = Integer(v.(f64))
                 output_set = true
 
@@ -686,15 +758,18 @@ animation_samplers_parse :: proc(array: json.Array) -> (res: []Animation_Sampler
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v)
+            case:
+                warning_unexpected_data(#procedure, k, v)
             }
         }
 
         if !input_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "input", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "input", index = idx}}
         }
         if !output_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "output", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "output", index = idx}}
         }
     }
     return res, nil
@@ -717,7 +792,8 @@ buffers_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Buffer, 
 
         for k, v in buffer.(json.Object) {
             switch k {
-            case "byteLength": // Required
+            case "byteLength":
+                // Required
                 res[idx].byte_length = Integer(v.(f64))
                 byte_length_set = true
 
@@ -733,12 +809,18 @@ buffers_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Buffer, 
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if !byte_length_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param =  { name = "byteLength", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "byteLength", index = idx},
+                }
         }
     }
 
@@ -772,11 +854,13 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
 
         for k, v in view.(json.Object) {
             switch k {
-            case "buffer": // Required
+            case "buffer":
+                // Required
                 res[idx].buffer = Integer(v.(f64))
                 buffer_set = true
 
-            case "byteLength": // Required
+            case "byteLength":
+                // Required
                 res[idx].byte_length = Integer(v.(f64))
                 byte_length_set = true
 
@@ -798,15 +882,22 @@ buffer_views_parse :: proc(object: json.Object) -> (res: []Buffer_View, err: Err
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if !buffer_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "buffer", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "buffer", index = idx}}
         }
         if !byte_length_set {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "byteLength", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "byteLength", index = idx},
+                }
         }
     }
 
@@ -839,7 +930,7 @@ cameras_parse :: proc(object: json.Object) -> (res: []Camera, err: Error) {
                 res[idx].name = v.(string)
 
             case "type": // Required and not used here. Camera.type is union that can contain only:
-                        // Orthographic_Camera or Perspective_Camera struct
+            // Orthographic_Camera or Perspective_Camera struct
             case "orthographic":
                 res[idx].type = orthographic_camera_parse(v.(json.Object)) or_return
 
@@ -852,12 +943,14 @@ cameras_parse :: proc(object: json.Object) -> (res: []Camera, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if res[idx].type == nil {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "type", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "type", index = idx}}
         }
     }
 
@@ -877,19 +970,23 @@ orthographic_camera_parse :: proc(object: json.Object) -> (res: Orthographic_Cam
 
     for k, v in object {
         switch k {
-        case "xmag": // Required
+        case "xmag":
+            // Required
             res.xmag = Number(v.(f64))
             xmag_set = true
 
-        case "ymag": // Required
+        case "ymag":
+            // Required
             res.ymag = Number(v.(f64))
             ymag_set = true
 
-        case "zfar": // Required
+        case "zfar":
+            // Required
             res.zfar = Number(v.(f64))
             zfar_set = true
 
-        case "znear": // Required
+        case "znear":
+            // Required
             res.znear = Number(v.(f64))
             znear_set = true
 
@@ -899,21 +996,22 @@ orthographic_camera_parse :: proc(object: json.Object) -> (res: Orthographic_Cam
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if !xmag_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "xmag" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "xmag"}}
     }
     if !ymag_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "ymag" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "ymag"}}
     }
     if !zfar_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "zfar" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "zfar"}}
     }
     if !znear_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "znear" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "znear"}}
     }
 
     return res, nil
@@ -928,14 +1026,16 @@ perspective_camera_parse :: proc(object: json.Object) -> (res: Perspective_Camer
         case "aspectRatio":
             res.aspect_ratio = Number(v.(f64))
 
-        case "yfov": // Required
+        case "yfov":
+            // Required
             res.yfov = Number(v.(f64))
             yfov_set = true
 
         case "zfar":
             res.zfar = Number(v.(f64))
 
-        case "znear": // Required
+        case "znear":
+            // Required
             res.znear = Number(v.(f64))
             znear_set = true
 
@@ -945,15 +1045,16 @@ perspective_camera_parse :: proc(object: json.Object) -> (res: Perspective_Camer
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if !yfov_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "yfov" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "yfov"}}
     }
     if !znear_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "znear" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "znear"}}
     }
 
     return res, nil
@@ -984,7 +1085,8 @@ images_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Image, er
                 case "image/png":
                     res[idx].type = .PNG
                 case:
-                    return res, GLTF_Error{ type = .Unknown_File_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
+                    return res,
+                        GLTF_Error{type = .Unknown_File_Type, proc_name = #procedure, param = {name = v.(string), index = idx}}
                 }
 
             case "name":
@@ -999,7 +1101,8 @@ images_parse :: proc(object: json.Object, gltf_dir: string) -> (res: []Image, er
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -1034,7 +1137,8 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
 
         for k, v in material.(json.Object) {
             switch k {
-            case "alphaMode": // Default Opaque
+            case "alphaMode":
+                // Default Opaque
                 switch v.(string) {
                 case "OPAQUE":
                     res[idx].alpha_mode = .Opaque
@@ -1043,16 +1147,20 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
                 case "BLEND":
                     res[idx].alpha_mode = .Blend
                 case:
-                    return res, GLTF_Error{ type = .Invalid_Type, proc_name = #procedure, param = { name = v.(string), index = idx } }
+                    return res,
+                        GLTF_Error{type = .Invalid_Type, proc_name = #procedure, param = {name = v.(string), index = idx}}
                 }
 
-            case "alphaCutoff": // Default 0.5
+            case "alphaCutoff":
+                // Default 0.5
                 res[idx].alpha_cutoff = Number(v.(f64))
 
-            case "doubleSided": // Default false
+            case "doubleSided":
+                // Default false
                 res[idx].double_sided = v.(bool)
 
-            case "emissiveFactor": // Default [0, 0, 0]
+            case "emissiveFactor":
+                // Default [0, 0, 0]
                 for num, i in v.(json.Array) {
                     res[idx].emissive_factor[i] = Number(num.(f64))
                 }
@@ -1078,7 +1186,8 @@ materials_parse :: proc(object: json.Object) -> (res: []Material, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -1099,14 +1208,17 @@ normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_
 
     for k, v in object {
         switch k {
-        case "index": // Required
+        case "index":
+            // Required
             res.index = Integer(v.(f64))
             index_set = true
 
-        case "texCoord": // Default 0
+        case "texCoord":
+            // Default 0
             res.tex_coord = Integer(v.(f64))
 
-        case "scale": // Default 1
+        case "scale":
+            // Default 1
             res.scale = Number(v.(f64))
 
         case EXTENSIONS_KEY:
@@ -1115,12 +1227,13 @@ normal_texture_info_parse :: proc(object: json.Object) -> (res: Material_Normal_
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if !index_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "index" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "index"}}
     }
 
     return res, nil
@@ -1133,14 +1246,17 @@ occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occl
 
     for k, v in object {
         switch k {
-        case "index": // Required
+        case "index":
+            // Required
             res.index = Integer(v.(f64))
             index_set = true
 
-        case "texCoord": // Default 0
+        case "texCoord":
+            // Default 0
             res.tex_coord = Integer(v.(f64))
 
-        case "strength": // Default 1
+        case "strength":
+            // Default 1
             res.strength = Number(v.(f64))
 
         case EXTENSIONS_KEY:
@@ -1149,12 +1265,13 @@ occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occl
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if !index_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "index" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "index"}}
     }
 
     return res, nil
@@ -1162,13 +1279,14 @@ occlusion_texture_info_parse :: proc(object: json.Object) -> (res: Material_Occl
 
 @(require_results)
 pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Metallic_Roughness, err: Error) {
-    res.base_color_factor = { 1, 1, 1, 1 }
+    res.base_color_factor = {1, 1, 1, 1}
     res.metallic_factor = 1
     res.roughness_factor = 1
 
     for k, v in object {
         switch k {
-        case "baseColorFactor": // Default [ 1, 1, 1, 1 ]
+        case "baseColorFactor":
+            // Default [ 1, 1, 1, 1 ]
             for num, i in v.(json.Array) {
                 res.base_color_factor[i] = Number(num.(f64))
             }
@@ -1176,10 +1294,12 @@ pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Meta
         case "baseColorTexture":
             res.base_color_texture = texture_info_parse(v.(json.Object)) or_return
 
-        case "metallicFactor": // Default 1
+        case "metallicFactor":
+            // Default 1
             res.metallic_factor = Number(v.(f64))
 
-        case "roughnessFactor": // Default 1
+        case "roughnessFactor":
+            // Default 1
             res.roughness_factor = Number(v.(f64))
 
         case "metallicRoughnessTexture":
@@ -1191,7 +1311,8 @@ pbr_metallic_roughness_parse :: proc(object: json.Object) -> (res: Material_Meta
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
@@ -1216,7 +1337,8 @@ meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
             case "name":
                 res[idx].name = v.(string)
 
-            case "primitives": // Required
+            case "primitives":
+                // Required
                 res[idx].primitives = mesh_primitives_parse(v.(json.Array)) or_return
 
             case "weights":
@@ -1231,12 +1353,18 @@ meshes_parse :: proc(object: json.Object) -> (res: []Mesh, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if len(res[idx].primitives) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "primitives", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "primitives", index = idx},
+                }
         }
     }
     return res, nil
@@ -1264,7 +1392,8 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
 
         for key, val in primitive.(json.Object) {
             switch key {
-            case "attributes": // Required
+            case "attributes":
+                // Required
                 for k, v in val.(json.Object) {
                     res[idx].attributes[k] = Integer(v.(f64))
                 }
@@ -1275,7 +1404,8 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
             case "material":
                 res[idx].material = Integer(val.(f64))
 
-            case "mode": // Default Triangles(4)
+            case "mode":
+                // Default Triangles(4)
                 res[idx].mode = Mesh_Primitive_Mode(val.(f64))
 
             case "targets":
@@ -1287,12 +1417,18 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
             case EXTRAS_KEY:
                 res[idx].extras = val
 
-            case: warning_unexpected_data(#procedure, key, val, idx)
+            case:
+                warning_unexpected_data(#procedure, key, val, idx)
             }
         }
 
         if len(res[idx].attributes) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "attributes", index = idx } }
+            return res,
+                GLTF_Error {
+                    type = .Missing_Required_Parameter,
+                    proc_name = #procedure,
+                    param = {name = "attributes", index = idx},
+                }
         }
     }
 
@@ -1331,7 +1467,7 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
     for node, idx in nodes_array {
         res[idx].mat = Matrix4(1)
         res[idx].rotation = Quaternion(1)
-        res[idx].scale = { 1, 1, 1 }
+        res[idx].scale = {1, 1, 1}
 
         for k, v in node.(json.Object) {
             switch k {
@@ -1344,10 +1480,11 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
                     res[idx].children[i] = Integer(child.(f64))
                 }
 
-            case "matrix": // Default identity matrix
+            case "matrix":
+                // Default identity matrix
                 // Matrices are stored in column-major order. Odin matrices are indexed like this [row, col]
                 for num, i in v.(json.Array) {
-                    res[idx].mat[i % 4, i / 4] = Number(num.(f64))                    
+                    res[idx].mat[i % 4, i / 4] = Number(num.(f64))
                 }
 
             case "mesh":
@@ -1356,7 +1493,8 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
             case "name":
                 res[idx].name = v.(string)
 
-            case "scale": // Default [1, 1, 1]
+            case "scale":
+                // Default [1, 1, 1]
                 for num, i in v.(json.Array) {
                     res[idx].scale[i] = Number(num.(f64))
                 }
@@ -1364,14 +1502,16 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
             case "skin":
                 res[idx].skin = Integer(v.(f64))
 
-            case "rotation": // Default [0, 0, 0, 1]
+            case "rotation":
+                // Default [0, 0, 0, 1]
                 rotation: [4]Number
                 for num, i in v.(json.Array) {
                     rotation[i] = Number(num.(f64))
                 }
                 mem.copy(&res[idx].rotation, &rotation, size_of(Quaternion))
 
-            case "translation": // Defalt [0, 0, 0]
+            case "translation":
+                // Defalt [0, 0, 0]
                 for num, i in v.(json.Array) {
                     res[idx].translation[i] = Number(num.(f64))
                 }
@@ -1388,7 +1528,8 @@ nodes_parse :: proc(object: json.Object) -> (res: []Node, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -1434,10 +1575,12 @@ samplers_parse :: proc(object: json.Object) -> (res: []Sampler, err: Error) {
             case "minFilter":
                 res[idx].min_filter = Minification_Filter(v.(f64))
 
-            case "wrapS": // Default Repeat(10497)
+            case "wrapS":
+                // Default Repeat(10497)
                 res[idx].wrapS = Wrap_Mode(v.(f64))
 
-            case "wrapT": // Default Repeat(10497)
+            case "wrapT":
+                // Default Repeat(10497)
                 res[idx].wrapT = Wrap_Mode(v.(f64))
 
             case "name":
@@ -1449,7 +1592,8 @@ samplers_parse :: proc(object: json.Object) -> (res: []Sampler, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -1493,7 +1637,8 @@ scenes_parse :: proc(object: json.Object) -> (res: []Scene, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -1530,7 +1675,8 @@ skins_parse :: proc(object: json.Object) -> (res: []Skin, err: Error) {
             case "inverseBindMatrices":
                 res[idx].inverse_bind_matrices = Integer(v.(f64))
 
-            case "joints": // Required
+            case "joints":
+                // Required
                 res[idx].joints = make([]Integer, len(v.(json.Array)))
                 for joint, i in v.(json.Array) {
                     res[idx].joints[i] = Integer(joint.(f64))
@@ -1548,12 +1694,14 @@ skins_parse :: proc(object: json.Object) -> (res: []Skin, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
 
         if len(res[idx].joints) == 0 {
-            return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "joints", index = idx } }
+            return res,
+                GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "joints", index = idx}}
         }
     }
 
@@ -1588,7 +1736,7 @@ textures_parse :: proc(object: json.Object) -> (res: []Texture, err: Error) {
         for k, v in texture.(json.Object) {
             switch k {
             case "sampler":
-            res[idx].sampler = Integer(v.(f64))
+                res[idx].sampler = Integer(v.(f64))
 
             case "source":
                 res[idx].source = Integer(v.(f64))
@@ -1602,7 +1750,8 @@ textures_parse :: proc(object: json.Object) -> (res: []Texture, err: Error) {
             case EXTRAS_KEY:
                 res[idx].extras = v
 
-            case: warning_unexpected_data(#procedure, k, v, idx)
+            case:
+                warning_unexpected_data(#procedure, k, v, idx)
             }
         }
     }
@@ -1622,11 +1771,13 @@ texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Erro
     index_set: bool
     for k, v in object {
         switch k {
-        case "index": //Required
+        case "index":
+            //Required
             res.index = Integer(v.(f64))
             index_set = true
 
-        case "texCoord": // Default 0
+        case "texCoord":
+            // Default 0
             res.tex_coord = Integer(v.(f64))
 
         case EXTENSIONS_KEY:
@@ -1635,12 +1786,13 @@ texture_info_parse :: proc(object: json.Object) -> (res: Texture_Info, err: Erro
         case EXTRAS_KEY:
             res.extras = v
 
-        case: warning_unexpected_data(#procedure, k, v)
+        case:
+            warning_unexpected_data(#procedure, k, v)
         }
     }
 
     if !index_set {
-        return res, GLTF_Error{ type = .Missing_Required_Parameter, proc_name = #procedure, param = { name = "index" } }
+        return res, GLTF_Error{type = .Missing_Required_Parameter, proc_name = #procedure, param = {name = "index"}}
     }
 
     return res, nil
