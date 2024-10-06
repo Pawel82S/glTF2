@@ -2,44 +2,27 @@ package gltf2
 
 import "core:encoding/json"
 
-@(private)
-ACCESSORS_KEY :: "accessors"
-@(private)
-ANIMATIONS_KEY :: "animations"
-@(private)
-ASSET_KEY :: "asset"
-@(private)
-BUFFERS_KEY :: "buffers"
-@(private)
-BUFFER_VIEWS_KEY :: "bufferViews"
-@(private)
-CAMERAS_KEY :: "cameras"
-@(private)
-IMAGES_KEY :: "images"
-@(private)
-MATERIALS_KEY :: "materials"
-@(private)
-MESHES_KEY :: "meshes"
-@(private)
-NODES_KEY :: "nodes"
-@(private)
-SAMPLERS_KEY :: "samplers"
-@(private)
-SCENE_KEY :: "scene"
-@(private)
-SCENES_KEY :: "scenes"
-@(private)
-SKINS_KEY :: "skins"
-@(private)
-TEXTURES_KEY :: "textures"
-@(private)
-EXTENSIONS_KEY :: "extensions"
-@(private)
-EXTENSIONS_REQUIRED_KEY :: "extensionsRequired"
-@(private)
-EXTENSIONS_USED_KEY :: "extensionsUsed"
-@(private)
-EXTRAS_KEY :: "extras"
+// odinfmt: disable
+@(private) ACCESSORS_KEY :: "accessors"
+@(private) ANIMATIONS_KEY :: "animations"
+@(private) ASSET_KEY :: "asset"
+@(private) BUFFERS_KEY :: "buffers"
+@(private) BUFFER_VIEWS_KEY :: "bufferViews"
+@(private) CAMERAS_KEY :: "cameras"
+@(private) IMAGES_KEY :: "images"
+@(private) MATERIALS_KEY :: "materials"
+@(private) MESHES_KEY :: "meshes"
+@(private) NODES_KEY :: "nodes"
+@(private) SAMPLERS_KEY :: "samplers"
+@(private) SCENE_KEY :: "scene"
+@(private) SCENES_KEY :: "scenes"
+@(private) SKINS_KEY :: "skins"
+@(private) TEXTURES_KEY :: "textures"
+@(private) EXTENSIONS_KEY :: "extensions"
+@(private) EXTENSIONS_REQUIRED_KEY :: "extensionsRequired"
+@(private) EXTENSIONS_USED_KEY :: "extensionsUsed"
+@(private) EXTRAS_KEY :: "extras"
+// odinfmt: enable
 
 /*
 Add following line when compiling to change type of `Number` from f32 to f64:
