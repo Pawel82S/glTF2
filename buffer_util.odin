@@ -1,3 +1,31 @@
+/*
+Usage:
+
+```odin
+import gltf "gltf2"
+
+buf := gltf.buffer_slice(data, accessor_index).([][3]f32)
+for val, i in buf {
+    // ...
+}
+```
+
+Alternatively you can use a switch statement to handle multiple data formats:
+
+```odin
+buf := gltf.buffer_slice(data, accessor_index)
+#partial switch vals in buf {
+case [][4]u8:
+    for val, i in vals { 
+        // ...
+    }
+case [][4]i16:
+    for val, i in vals {
+        // ...
+    }
+}
+```                           
+*/
 package gltf2
 
 import "core:mem"
