@@ -52,11 +52,12 @@ main :: proc() {
     defer gltf2.unload(data)
 
     // do stuff with 'data'
-    ...
+    // ...
 
     // Iterate over buffer elements using accessor:
-    for it := gltf2.buf_iter_make([3]f32, &data.accessors[0], data); it.idx < it.count; it.idx += 1 {
-        fmt.printf("Index: %v = %v\n", it.idx, gltf2.buf_iter_elem(&it))
+    buf := gltf2.buffer_slice(data, 0).([3]f32)
+    for val, i in buf {
+        fmt.printf("Index: %v = %v\n", i, val)
     }
 }
 ```
