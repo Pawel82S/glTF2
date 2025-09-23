@@ -203,7 +203,7 @@ uri_parse :: proc(uri: Uri, gltf_dir: string) -> Uri {
         if !ok {
             return uri
         }
-        return cast([]byte)bytes
+        return bytes
     }
 
     type := str_data[:type_idx]
