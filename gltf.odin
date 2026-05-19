@@ -32,7 +32,6 @@ load_from_file :: proc(file_name: string, allocator := context.allocator) -> (da
     }
 
     gltf_dir := filepath.dir(file_name)
-    defer delete(gltf_dir)
 
     options := Options {
         delete_content = true,
