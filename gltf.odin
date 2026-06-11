@@ -222,7 +222,11 @@ uri_parse :: proc(uri: Uri, gltf_dir: string, allocator: runtime.Allocator) -> U
 
         switch encoding {
         case "base64":
-            return base64.decode(str_data[encoding_end_idx + 1:])
+            data: []u8
+            if data, err := base64.decode(str_data[encoding_end_idx + 1:]); err != nil {
+                return uri
+            }
+            return data
         }
     }
 
