@@ -172,8 +172,8 @@ Accessor_Type :: enum {
 
 Accessor_Sparse :: struct {
     //count: Integer, // Required
-    indices:    []Accessor_Sparse_Indices, // Required
-    values:     []Accessor_Sparse_Values, // Required
+    indices:    Accessor_Sparse_Indices, // Required
+    values:     Accessor_Sparse_Values, // Required
     extensions: Extensions,
     extras:     Extras,
 }
