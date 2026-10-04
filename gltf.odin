@@ -21,7 +21,7 @@ GLTF_MIN_VERSION :: 2
     Main library interface procedures
 */
 @(require_results)
-load_from_file :: proc(file_name: string, allocator := context.allocator) -> (data: ^Data, err: Error) {
+load_from_file :: proc(file_name: string, allocator := context.allocator, temp_allocator := context.temp_allocator) -> (data: ^Data, err: Error) {
     if !os.exists(file_name) {
         return nil, GLTF_Error{type = .No_File, proc_name = #procedure, param = {name = file_name}}
     }
@@ -37,31 +37,38 @@ load_from_file :: proc(file_name: string, allocator := context.allocator) -> (da
         delete_content = true,
         gltf_dir       = gltf_dir,
     }
-    switch strings.to_lower(filepath.ext(file_name), context.temp_allocator) {
+    file_ext := strings.to_lower(filepath.ext(file_name), temp_allocator)
+    defer delete(file_ext, temp_allocator)
+
+    switch file_ext {
     case ".gltf":
-        return parse(file_content, options, allocator)
+        return parse(file_content, options, allocator, temp_allocator)
     case ".glb":
         options.is_glb = true
-        return parse(file_content, options, allocator)
+        return parse(file_content, options, allocator, temp_allocator)
     case:
+        delete(file_content, allocator)
         return nil, GLTF_Error{type = .Unknown_File_Type, proc_name = #procedure, param = {name = file_name}}
     }
 }
 
 @(require_results)
-parse :: proc(file_content: []byte, opt := Options{}, allocator := context.allocator) -> (data: ^Data, err: Error) {
+parse :: proc(file_content: []byte, opt := Options{}, allocator := context.allocator, temp_allocator := context.temp_allocator) -> (data: ^Data, err: Error) {
+    context.allocator = allocator
+    context.temp_allocator = temp_allocator
+
     defer if opt.delete_content {
-        delete(file_content)
+        delete(file_content, allocator)
     }
 
     if len(file_content) < GLB_HEADER_SIZE {
         return data, GLTF_Error{type = .Data_Too_Short, proc_name = #procedure}
     }
 
-    context.allocator = allocator
     data = new(Data)
     defer if err != nil {
-        unload(data)
+        unload(data, allocator)
+        data = nil
     }
 
     json_data := file_content
@@ -136,10 +143,12 @@ parse :: proc(file_content: []byte, opt := Options{}, allocator := context.alloc
 }
 
 // It is safe to pass nil here
-unload :: proc(data: ^Data) {
+unload :: proc(data: ^Data, allocator := context.allocator) {
     if data == nil {
         return
     }
+
+    context.allocator = allocator
 
     json.destroy_value(data.json_value)
     accessors_free(data.accessors)
@@ -199,7 +208,9 @@ uri_parse :: proc(uri: Uri, gltf_dir: string, allocator: runtime.Allocator) -> U
     type_idx := strings.index_rune(str_data, ':')
     if type_idx == -1 {
         // Check if this is possible file and if so load it
-        bytes, err := os.read_entire_file(fmt.tprintf("%s/%s", gltf_dir, str_data), allocator)
+        temp_path := fmt.tprintf("%s/%s", gltf_dir, str_data)
+        defer delete(temp_path, context.temp_allocator)
+        bytes, err := os.read_entire_file(temp_path, allocator)
         if err != nil {
             return uri
         }
