@@ -388,27 +388,11 @@ Mesh_Primitive_Mode :: enum {
     Triangle_Fan,
 }
 
-// TODO: Verify if this is correct
+// One morph target of a primitive (spec: "targets" is an array of attributes).
+// The core spec permits only POSITION, NORMAL and TANGENT, with texture coordinates (TEXCOORD_n) and colors (COLOR_n) added in a later 2.0 revision.
 Mesh_Target :: struct {
-    type:  Mesh_Target_Type,
-    index: Integer,
-    data:  Accessor,
-    name:  string,
+    attributes: map[string]Integer,
 }
-
-// TODO: Verify if this is correct
-Mesh_Target_Type :: enum {
-    Invalid,
-    Position,
-    Normal,
-    Tangent,
-    TexCoord,
-    Color,
-    Joints,
-    Weights,
-    Custom,
-}
-
 
 /*
     Node data structure
