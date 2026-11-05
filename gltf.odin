@@ -1409,7 +1409,7 @@ mesh_primitives_parse :: proc(array: json.Array) -> (res: []Mesh_Primitive, err:
                 res[idx].mode = Mesh_Primitive_Mode(val.(f64))
 
             case "targets":
-                res[idx].targets = mesh_targets_parse(val.(json.Object)) or_return
+                res[idx].targets = mesh_targets_parse(val.(json.Array)) or_return
 
             case EXTENSIONS_KEY:
                 res[idx].extensions = val
@@ -1443,13 +1443,29 @@ mesh_primitives_free :: proc(primitives: []Mesh_Primitive) {
         if len(primitive.attributes) > 0 {
             delete(primitive.attributes)
         }
+        for target in primitive.targets {
+            if len(target.attributes) > 0 {
+                delete(target.attributes)
+            }
+        }
+        if len(primitive.targets) > 0 {
+            delete(primitive.targets)
+        }
     }
     delete(primitives)
 }
 
 @(require_results)
-mesh_targets_parse :: proc(object: json.Object) -> (res: []Mesh_Target, err: Error) {
-    unimplemented(#procedure)
+mesh_targets_parse :: proc(array: json.Array) -> (res: []Mesh_Target, err: Error) {
+    res = make([]Mesh_Target, len(array))
+
+    for target, idx in array {
+        for k, v in target.(json.Object) {
+            res[idx].attributes[k] = Integer(v.(f64))
+        }
+    }
+
+    return res, nil
 }
 
 /*
